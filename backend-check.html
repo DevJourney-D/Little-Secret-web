@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Check - Neko U</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .card { border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .test-btn { margin: 5px; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 5px; font-size: 14px; }
+        .result-success { background-color: #d4edda; color: #155724; }
+        .result-error { background-color: #f8d7da; color: #721c24; }
+        .result-warning { background-color: #fff3cd; color: #856404; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 12px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header bg-primary text-white text-center">
+                <h2>🔍 Backend API Testing</h2>
+                <p class="mb-0">ตรวจสอบสถานะและฟังก์ชันของ Backend API</p>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Backend URL:</strong> https://little-secret-api.vercel.app<br>
+                    <strong>สถานะ:</strong> <span id="backend-status">กำลังตรวจสอบ...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🔐 Authentication Endpoints</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary test-btn w-100" onclick="testHealthCheck()">
+                            Health Check
+                        </button>
+                        <button class="btn btn-info test-btn w-100" onclick="testCheckUsername()">
+                            Check Username Available
+                        </button>
+                        <button class="btn btn-warning test-btn w-100" onclick="testCheckEmail()">
+                            Check Email Available
+                        </button>
+                        <button class="btn btn-success test-btn w-100" onclick="testRegister()">
+                            Test Registration
+                        </button>
+                        <button class="btn btn-secondary test-btn w-100" onclick="testLogin()">
+                            Test Login
+                        </button>
+                        <div id="auth-results"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>👤 User Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-outline-primary test-btn w-100" onclick="testGetUser()">
+                            Get User Info
+                        </button>
+                        <button class="btn btn-outline-success test-btn w-100" onclick="testUpdateUser()">
+                            Update User
+                        </button>
+                        <button class="btn btn-outline-info test-btn w-100" onclick="testGeneratePartnerCode()">
+                            Generate Partner Code
+                        </button>
+                        <button class="btn btn-outline-warning test-btn w-100" onclick="testConnectPartner()">
+                            Connect Partner
+                        </button>
+                        <div id="user-results"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>📊 API Response Logs</h5>
+            </div>
+            <div class="card-body">
+                <pre id="log-output">พร้อมทดสอบ API...</pre>
+                <button class="btn btn-secondary btn-sm" onclick="clearLogs()">Clear Logs</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>🚀 Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="user-test.html" class="btn btn-outline-primary w-100">User Test</a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="create-user.html" class="btn btn-outline-success w-100">Create User</a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="test.html" class="btn btn-outline-secondary w-100">System Test</a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="html/index.html" class="btn btn-outline-info w-100">Login Page</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://little-secret-api.vercel.app';
+        let logContent = '';
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logContent += `[${timestamp}] ${message}\n`;
+            document.getElementById('log-output').textContent = logContent;
+        }
+
+        function showResult(containerId, type, title, message) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="result result-${type}">
+                    <strong>${title}</strong><br>
+                    ${message}
+                </div>
+            `;
+        }
+
+        function clearLogs() {
+            logContent = '';
+            document.getElementById('log-output').textContent = 'Logs cleared...';
+        }
+
+        async function testHealthCheck() {
+            try {
+                log('Testing health check...');
+                const response = await fetch(`${API_BASE}/`, {
+                    method: 'GET'
+                });
+
+                const text = await response.text();
+                log(`Health response: ${response.status} - ${text.substring(0, 200)}...`);
+
+                if (response.ok) {
+                    showResult('auth-results', 'success', 'Health Check ✅', 
+                        `Server responding (${response.status})`);
+                    document.getElementById('backend-status').innerHTML = 
+                        '<span class="text-success">🟢 Online</span>';
+                } else {
+                    showResult('auth-results', 'warning', 'Health Check ⚠️', 
+                        `Server responded with ${response.status}`);
+                }
+            } catch (error) {
+                log(`Health check error: ${error.message}`);
+                showResult('auth-results', 'error', 'Health Check ❌', error.message);
+                document.getElementById('backend-status').innerHTML = 
+                    '<span class="text-danger">🔴 Offline</span>';
+            }
+        }
+
+        async function testCheckUsername() {
+            try {
+                log('Testing check username...');
+                const response = await fetch(`${API_BASE}/api/auth/check-username?username=testuser`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                log(`Check username response: ${JSON.stringify(data)}`);
+
+                if (response.ok) {
+                    showResult('auth-results', 'success', 'Check Username ✅', 
+                        `API working: ${data.message || 'Username check successful'}`);
+                } else {
+                    showResult('auth-results', 'warning', 'Check Username ⚠️', 
+                        `${response.status}: ${data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                log(`Check username error: ${error.message}`);
+                showResult('auth-results', 'error', 'Check Username ❌', error.message);
+            }
+        }
+
+        async function testCheckEmail() {
+            try {
+                log('Testing check email...');
+                const response = await fetch(`${API_BASE}/api/auth/check-email?email=test@example.com`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                log(`Check email response: ${JSON.stringify(data)}`);
+
+                if (response.ok) {
+                    showResult('auth-results', 'success', 'Check Email ✅', 
+                        `API working: ${data.message || 'Email check successful'}`);
+                } else {
+                    showResult('auth-results', 'warning', 'Check Email ⚠️', 
+                        `${response.status}: ${data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                log(`Check email error: ${error.message}`);
+                showResult('auth-results', 'error', 'Check Email ❌', error.message);
+            }
+        }
+
+        async function testRegister() {
+            try {
+                log('Testing registration...');
+                const testUser = {
+                    username: 'testuser_' + Date.now(),
+                    email: 'test_' + Date.now() + '@example.com',
+                    password: 'testpass123',
+                    first_name: 'Test',
+                    last_name: 'User',
+                    birth_date: '1990-01-01'
+                };
+
+                const response = await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testUser)
+                });
+
+                const data = await response.json();
+                log(`Registration response: ${JSON.stringify(data)}`);
+
+                if (response.ok && data.success) {
+                    showResult('auth-results', 'success', 'Registration ✅', 
+                        `User created successfully: ${testUser.username}`);
+                } else {
+                    showResult('auth-results', 'warning', 'Registration ⚠️', 
+                        `${response.status}: ${data.message || 'Registration failed'}`);
+                }
+            } catch (error) {
+                log(`Registration error: ${error.message}`);
+                showResult('auth-results', 'error', 'Registration ❌', error.message);
+            }
+        }
+
+        async function testLogin() {
+            try {
+                log('Testing login...');
+                const credentials = {
+                    username: 'komkem',
+                    password: '062191'
+                };
+
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(credentials)
+                });
+
+                const data = await response.json();
+                log(`Login response: ${JSON.stringify(data)}`);
+
+                if (response.ok && data.success) {
+                    localStorage.setItem('test_token', data.data.token);
+                    localStorage.setItem('test_user', JSON.stringify(data.data.user));
+                    showResult('auth-results', 'success', 'Login ✅', 
+                        `Login successful for ${credentials.username}`);
+                } else {
+                    showResult('auth-results', 'warning', 'Login ⚠️', 
+                        `${response.status}: ${data.message || 'Login failed'}`);
+                }
+            } catch (error) {
+                log(`Login error: ${error.message}`);
+                showResult('auth-results', 'error', 'Login ❌', error.message);
+            }
+        }
+
+        async function testGetUser() {
+            try {
+                const token = localStorage.getItem('test_token');
+                const user = JSON.parse(localStorage.getItem('test_user') || '{}');
+
+                if (!token || !user.id) {
+                    showResult('user-results', 'warning', 'Get User ⚠️', 
+                        'Please login first to get token');
+                    return;
+                }
+
+                log(`Testing get user for ID: ${user.id}`);
+                const response = await fetch(`${API_BASE}/api/users/${user.id}`, {
+                    method: 'GET',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+                log(`Get user response: ${JSON.stringify(data)}`);
+
+                if (response.ok && data.success) {
+                    showResult('user-results', 'success', 'Get User ✅', 
+                        `User info retrieved: ${data.data.username}`);
+                } else {
+                    showResult('user-results', 'warning', 'Get User ⚠️', 
+                        `${response.status}: ${data.message || 'Failed to get user'}`);
+                }
+            } catch (error) {
+                log(`Get user error: ${error.message}`);
+                showResult('user-results', 'error', 'Get User ❌', error.message);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Backend check page loaded');
+            log(`API Base: ${API_BASE}`);
+            testHealthCheck(); // Auto-run health check
+        });
+
+        // Placeholder functions
+        async function testUpdateUser() {
+            showResult('user-results', 'warning', 'Update User', 'Feature test not implemented yet');
+        }
+
+        async function testGeneratePartnerCode() {
+            showResult('user-results', 'warning', 'Partner Code', 'Feature test not implemented yet');
+        }
+
+        async function testConnectPartner() {
+            showResult('user-results', 'warning', 'Connect Partner', 'Feature test not implemented yet');
+        }
+    </script>
+</body>
+</html>

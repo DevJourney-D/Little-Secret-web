@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neko U - แดชบอร์ด</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/navigation.css">
+    
+    <!-- Vercel Analytics -->
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+    <style>
+        :root {
+            --primary-color: #87CEEB;
+            --secondary-color: #FFB6C1;
+            --accent-color: #E6E6FA;
+            --text-dark: #4A4A4A;
+            --bg-light: #F8F9FA;
+            --success-color: #98FB98;
+            --warning-color: #FFE4B5;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-light) 0%, var(--accent-color) 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1rem 0;
+            position: relative;
+            overflow: visible;
+        }
+
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        .navbar-nav {
+            flex-direction: row !important;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            color: var(--primary-color) !important;
+            font-size: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .navbar-brand:hover {
+            transform: scale(1.05);
+        }
+
+        /* User Dropdown Styles */
+        .nav-item.dropdown {
+            position: relative;
+        }
+
+        .navbar-nav {
+            position: relative;
+        }
+
+        .nav-link.dropdown-toggle {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: rgba(135, 206, 235, 0.1);
+            border-radius: 25px;
+            color: var(--text-dark) !important;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .nav-link.dropdown-toggle:hover {
+            background: rgba(135, 206, 235, 0.2);
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .nav-link.dropdown-toggle i {
+            font-size: 1.2rem;
+            margin-right: 8px;
+        }
+
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-radius: 15px;
+            padding: 10px 0;
+            margin-top: 10px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            min-width: 200px;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            position: absolute !important;
+            z-index: 1050;
+        }
+
+        .dropdown-menu.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .dropdown-item {
+            padding: 12px 20px;
+            color: var(--text-dark);
+            transition: all 0.3s ease;
+            border-radius: 10px;
+            margin: 2px 10px;
+        }
+
+        .dropdown-item:hover {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .dropdown-item i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .dropdown-divider {
+            margin: 8px 20px;
+            border-color: var(--accent-color);
+        }
+
+        /* Animation for dropdown arrow */
+        .dropdown-toggle::after {
+            transition: transform 0.3s ease;
+        }
+
+        .dropdown-toggle[aria-expanded="true"]::after {
+            transform: rotate(180deg);
+        }
+
+        .main-container {
+            padding: 20px 0;
+        }
+
+        .welcome-card {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            cursor: pointer;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover .feature-icon {
+            transform: scale(1.2) rotate(5deg);
+        }
+
+        .feature-title {
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--text-dark);
+        }
+
+        .feature-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .btn-feature {
+            background: var(--primary-color);
+            border: none;
+            color: white;
+            border-radius: 10px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-feature:hover {
+            background: var(--secondary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .stats-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .stats-label {
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+
+        .partner-info {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border: 2px solid #e3f2fd;
+        }
+
+        .partner-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .partner-status.online {
+            background: var(--success-color);
+            color: #2d5f3f;
+        }
+
+        .partner-status.offline {
+            background: #f8f9fa;
+            color: #666;
+        }
+        
+        .spinning {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .partner-code-display {
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .input-group .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(135, 206, 235, 0.25);
+        }
+
+        #pairingSection .alert {
+            border: none;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            color: #1976d2;
+        }
+
+        .greeting-text {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .loading-placeholder {
+            animation: loading-pulse 1.5s ease-in-out infinite;
+            color: #ccc;
+        }
+
+        @keyframes loading-pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        .stats-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .stats-number {
+            transition: color 0.3s ease;
+        }
+
+        .stats-card:hover .stats-number {
+            color: var(--secondary-color);
+        }
+
+        .activity-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-section {
+            margin-bottom: 15px;
+        }
+
+        .activity-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .recent-activity {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .greeting-text {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .morning-message {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        /* Partner Card Styles */
+        .partner-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .partner-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .partner-code-card {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid var(--primary-color);
+            transition: all 0.3s ease;
+        }
+
+        .partner-code-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(135, 206, 235, 0.3);
+        }
+
+        .partner-code-display {
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px dashed var(--primary-color);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            transition: all 0.3s ease;
+        }
+
+        .partner-code-display:hover {
+            background: rgba(255, 255, 255, 1);
+            border-style: solid;
+        }
+
+        .copy-btn {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 10px;
+            padding: 8px 16px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            color: white;
+        }
+
+        .partner-info-card {
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.1) 0%, rgba(135, 206, 235, 0.1) 100%);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid var(--secondary-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .partner-info-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.6s ease;
+            opacity: 0;
+        }
+
+        .partner-info-card:hover::before {
+            animation: shimmer 1.5s ease-in-out;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); opacity: 0; }
+        }
+
+        .partner-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: white;
+            margin-right: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .partner-avatar:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .partner-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .partner-status.online {
+            background: linear-gradient(45deg, #4CAF50, #8BC34A);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        .partner-status.online .bi-circle-fill {
+            color: #90EE90;
+            animation: blink 1.5s infinite;
+        }
+
+        .partner-status.offline {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .partner-status.offline .bi-circle-fill {
+            color: #ccc;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+
+        .unpair-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            border: none;
+            border-radius: 25px;
+            padding: 8px 16px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .unpair-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+            color: white;
+        }
+
+        .pairing-card {
+            background: linear-gradient(135deg, #fff3e0 0%, #e8f5e8 100%);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid #ffb74d;
+        }
+
+        .pairing-input {
+            border: 2px solid var(--accent-color);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        .pairing-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(135, 206, 235, 0.25);
+            transform: scale(1.02);
+        }
+
+        .pair-btn {
+            background: linear-gradient(45deg, #4CAF50, #8BC34A);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .pair-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+            color: white;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-heart-fill text-danger"></i> Neko U
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i>
+                        <span id="userName">Loading...</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="settings.html">
+                            <i class="bi bi-person-gear"></i> ข้อมูลผู้ใช้และตั้งค่า
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#" onclick="logout()">
+                            <i class="bi bi-box-arrow-right"></i> ออกจากระบบ
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container main-container">
+        <!-- Welcome Section -->
+        <div class="welcome-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="greeting-text">
+                        <span id="greetingEmoji">👋</span>
+                        <span id="greetingTime">สวัสดี</span>, 
+                        <span id="userName">กำลังโหลด...</span>
+                    </div>
+                    <p class="mb-0 opacity-90">วันที่ <span id="currentDate"></span></p>
+                </div>
+                <div class="text-end">
+                    <div class="partner-info mb-2">
+                        <span class="text-light opacity-75">คู่รัก: </span>
+                        <span id="partnerNameHeader">ยังไม่มี</span>
+                    </div>
+                    <span class="partner-status" id="partnerStatusHeader">
+                        <i class="bi bi-circle-fill me-1"></i>
+                        ออฟไลน์
+                    </span>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-light" onclick="dashboardFunctions.refreshStats()" title="รีเฟรชสถิติ">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-light ms-1" onclick="dashboardFunctions.refreshDashboard()" title="รีเฟรชทั้งหมด">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="morning-message" id="morningMessage" style="display: none;">
+                <i class="bi bi-sunrise"></i>
+                <span id="dailyGreeting"></span>
+            </div>
+        </div>
+
+        <!-- Partner Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <!-- My Partner Code Card -->
+                <div class="partner-card">
+                    <div class="partner-code-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2 text-muted">
+                                    <i class="bi bi-qr-code me-2"></i>รหัสของคุณ
+                                </h6>
+                                <div class="partner-code-display" id="myPartnerCode">------</div>
+
+                                
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    แชร์รหัสนี้กับคู่ของคุณเพื่อจับคู่กัน
+                                </small>
+                            </div>
+                            <div class="ms-3">
+                                <button class="copy-btn" onclick="copyPartnerCode()" title="คัดลอกรหัส">
+                                    <i class="bi bi-clipboard me-2"></i>คัดลอก
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Partner Info Card (แสดงเมื่อจับคู่แล้ว) -->
+                <div class="partner-card" id="partnerInfoCard" style="display: none;">
+                    <div class="partner-info-card">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center flex-grow-1">
+                                <div class="partner-avatar">
+                                    <i class="bi bi-person-heart"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <h5 class="mb-0 me-3" id="partnerName">ยังไม่มีคู่รัก</h5>
+                                        <span class="partner-status offline" id="partnerStatus">
+                                            <i class="bi bi-circle-fill me-1" style="font-size: 0.6rem;"></i>
+                                            ออฟไลน์
+                                        </span>
+                                    </div>
+                                    <div class="mb-2" id="partnerNickname">
+                                        <i class="bi bi-heart text-danger me-1"></i>
+                                        <span class="text-muted">ชื่อเล่น: </span>
+                                        <span>กำลังโหลด...</span>
+                                    </div>
+                                    <div class="text-muted small">
+                                        <i class="bi bi-calendar-heart me-1"></i>
+                                        เชื่อมต่อแล้วเมื่อ <span id="partnerSince">-</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-success">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            คู่รักสามารถเห็นชื่อของคุณได้เช่นกัน
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <button class="unpair-btn" onclick="confirmUnpairPartner()" title="ยกเลิกการจับคู่">
+                                    <i class="bi bi-heart-break me-2"></i>ยกเลิก
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pairing Card (แสดงเมื่อยังไม่จับคู่) -->
+                <div class="partner-card" id="pairingCard">
+                    <div class="pairing-card">
+                        <div class="text-center mb-3">
+                            <i class="bi bi-heart text-warning" style="font-size: 3rem;"></i>
+                            <h5 class="mt-2 mb-3">จับคู่กับคนรัก</h5>
+                            <p class="text-muted mb-4">
+                                กรอกรหัสของคู่รักเพื่อเริ่มต้นการใช้งานร่วมกัน
+                            </p>
+                        </div>
+                        
+                        <div id="pairingAlert"></div>
+                        
+                        <form id="pairingForm" class="text-center">
+                            <div class="mb-3">
+                                <input type="text" 
+                                       class="form-control pairing-input" 
+                                       id="partnerCodeInput" 
+                                       placeholder="กรอกรหัสคู่รัก"
+                                       maxlength="8"
+                                       required>
+                            </div>
+                            <button type="submit" class="pair-btn">
+                                <i class="bi bi-heart-arrow me-2"></i>จับคู่เลย
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="row mb-4">
+            <div class="col-md-2 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="diaryCount">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">บันทึกไดอารี่</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="todoCount">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">งานที่เหลือ</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="chatCount">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">ข้อความที่ส่ง</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="mathAccuracy">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">ความแม่นยำคณิต</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="pomodoroSessions">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">เซสชัน Pomodoro</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="daysTogether">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">วันที่ใช้งาน</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Stats Row -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="totalMathProblems">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">โจทย์คณิตที่ทำ</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="pomodoroHours">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">ชั่วโมงที่ใช้งาน</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="completedTodos">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">งานที่เสร็จแล้ว</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="partnerChatCount">
+                        <span class="loading-placeholder">...</span>
+                    </div>
+                    <div class="stats-label">ข้อความจากคู่รัก</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card" style="background: rgba(255, 255, 255, 0.9); border-radius: 15px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.08);">
+                    <div class="card-body">
+                        <div id="recentActivityContainer">
+                            <div class="text-center text-muted">
+                                <div class="loading-placeholder">
+                                    <i class="bi bi-hourglass-split spinning"></i>
+                                    กำลังโหลดกิจกรรมล่าสุด...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Grid -->
+        <div class="row">
+            <!-- Diary -->
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">📖</div>
+                    <div class="feature-title">ไดอารี่คู่รัก</div>
+                    <div class="feature-description">
+                        เขียนบันทึกประจำวันและแบ่งปันกับคู่รัก
+                    </div>
+                    <button class="btn btn-feature" onclick="goToDiary()">
+                        เขียนไดอารี่
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat -->
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card text-center position-relative">
+                    <div class="feature-icon">💬</div>
+                    <div class="feature-title">แชตคู่รัก</div>
+                    <div class="feature-description">
+                        คุยกันแบบเรียลไทม์และส่งความรู้สึก
+                    </div>
+                    <button class="btn btn-feature" onclick="goToChat()">
+                        เริ่มแชต
+                    </button>
+                    <span class="notification-badge" id="chatNotification" style="display: none;">0</span>
+                </div>
+            </div>
+
+            <!-- Todo -->
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">✅</div>
+                    <div class="feature-title">รายการสิ่งที่ต้องทำ</div>
+                    <div class="feature-description">
+                        จัดการงานและเป้าหมายร่วมกัน
+                    </div>
+                    <button class="btn btn-feature" onclick="goToTodo()">
+                        จัดการงาน
+                    </button>
+                </div>
+            </div>
+
+            <!-- Neko Chat -->
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">🐱</div>
+                    <div class="feature-title">คุยกับเนโกะ</div>
+                    <div class="feature-description">
+                        AI Assistant น่ารักที่จะช่วยให้คำปรึกษา
+                    </div>
+                    <button class="btn btn-feature" onclick="goToNekoChat()">
+                        คุยกับเนโกะ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Math Problems -->
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">🧮</div>
+                    <div class="feature-title">โจทย์คณิตศาสตร์</div>
+                    <div class="feature-description">
+                        ฝึกสมองด้วยโจทย์คณิตศาสตร์หลากหลายระดับ
+                    </div>
+                    <button class="btn btn-feature" onclick="goToMath()">
+                        เริ่มฝึกสมอง
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pomodoro -->
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">⏰</div>
+                    <div class="feature-title">Pomodoro Timer</div>
+                    <div class="feature-description">
+                        จับเวลาทำงานและพักผ่อนอย่างมีประสิทธิภาพ
+                    </div>
+                    <button class="btn btn-feature" onclick="goToPomodoro()">
+                        เริ่มจับเวลา
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/user-info.js"></script>
+    <script src="../js/analytics.js"></script>
+    <script src="../js/presence.js"></script>
+    <script src="../js/dashboard.js"></script>
+</body>
+</html>

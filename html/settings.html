@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neko U - ตั้งค่าและข้อมูลผู้ใช้</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/navigation.css">
+    <link rel="stylesheet" href="../css/style.css">
+    
+    <!-- Vercel Analytics -->
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #FF69B4;
+            --secondary-color: #87CEEB;
+            --accent-color: #FFB6C1;
+            --bg-gradient: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        body {
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            scroll-behavior: smooth;
+        }
+        
+        .settings-container {
+            padding: 2rem 0;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .settings-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            margin-bottom: 2rem;
+            border: none;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .settings-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        }
+        
+        .card-header {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 20px 20px 0 0 !important;
+            padding: 1.5rem 2rem;
+            border: none;
+        }
+
+        .card-header h5 {
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .overview-card {
+            background: linear-gradient(135deg, var(--secondary-color), var(--accent-color));
+            color: white;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+        }
+        
+        .overview-card .card-body {
+            padding: 2rem;
+        }
+
+        .user-avatar {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .user-info h3 {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-info p {
+            margin-bottom: 0.3rem;
+            opacity: 0.9;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-row i {
+            color: var(--primary-color);
+        }
+        
+        .btn-group .btn {
+            border-radius: 10px !important;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+        }
+        
+        .btn-group .btn:not(:last-child) {
+            margin-right: 0.5rem;
+        }
+        
+        .edit-mode-controls {
+            animation: fadeIn 0.3s ease-in-out;
+            display: none !important;
+        }
+
+        .edit-mode .edit-mode-controls {
+            display: inline-block !important;
+        }
+
+        .edit-mode .view-mode-controls {
+            display: none !important;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 0.8rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(255, 105, 180, 0.25);
+        }
+
+        .form-control:disabled {
+            background-color: #f8f9fa;
+            border-color: #e9ecef;
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+
+        .form-control:not(:disabled) {
+            background-color: white;
+            border-color: #e9ecef;
+        }
+
+        .form-control:not(:disabled):focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(255, 105, 180, 0.25);
+        }
+
+        .form-check-input:disabled {
+            cursor: not-allowed;
+        }
+        
+        .edit-mode .form-control:not(.form-control-plaintext) {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.1rem rgba(255, 105, 180, 0.15);
+        }
+
+        .btn:disabled {
+            cursor: not-allowed;
+        }
+
+        .spinner-border-sm {
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+        
+        .form-floating {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-placeholder {
+            padding: 3rem 2rem;
+            color: #6c757d;
+            text-align: center;
+            border-radius: 15px;
+            background: #f8f9fa;
+        }
+        
+        .password-strength .progress {
+            height: 8px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .alert {
+            border: none;
+            border-left: 4px solid;
+            border-radius: 15px;
+            padding: 1rem 1.5rem;
+        }
+        
+        .alert-info {
+            border-left-color: #0dcaf0;
+            background-color: rgba(13, 202, 240, 0.1);
+        }
+        
+        .alert-warning {
+            border-left-color: #ffc107;
+            background-color: rgba(255, 193, 7, 0.1);
+        }
+
+        .alert-danger {
+            border-left-color: #dc3545;
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .danger-zone {
+            background: rgba(220, 53, 69, 0.05);
+            border: 2px solid rgba(220, 53, 69, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+        }
+
+        .partnership-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: 500;
+            gap: 0.5rem;
+        }
+
+        .partnership-badge.connected {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+            border: 2px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .partnership-badge.pending {
+            background: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
+            border: 2px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .partnership-badge.none {
+            background: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+            border: 2px solid rgba(108, 117, 125, 0.3);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .settings-container {
+                padding: 1rem;
+            }
+            
+            .overview-card .card-body {
+                padding: 1.5rem;
+            }
+            
+            .user-avatar {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="dashboard.html">
+                🐱 Neko U
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i>
+                        <span id="userName">ผู้ใช้</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="dashboard.html">
+                            <i class="bi bi-house"></i> แดชบอร์ด
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#" onclick="handleLogout()">
+                            <i class="bi bi-box-arrow-right"></i> ออกจากระบบ
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container settings-container">
+        <!-- User Overview Card -->
+        <div class="card overview-card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-3 text-center">
+                        <div class="user-avatar">
+                            <i class="bi bi-person-circle"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-6 user-info">
+                        <h3 id="userDisplayName">กำลังโหลด...</h3>
+                        <p><i class="bi bi-envelope me-2"></i><span id="userEmail">กำลังโหลด...</span></p>
+                        <p><i class="bi bi-person me-2"></i><span id="userUsername">กำลังโหลด...</span></p>
+                        <p><i class="bi bi-calendar me-2"></i>เข้าร่วมเมื่อ <span id="userJoinDate">กำลังโหลด...</span></p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div id="partnershipStatus" class="mb-3">
+                            <span class="partnership-badge none">
+                                <i class="bi bi-heart"></i>
+                                ยังไม่มีคู่รัก
+                            </span>
+                        </div>
+                        <div>
+                            <button class="btn btn-light btn-sm" id="editOverviewBtn">
+                                <i class="bi bi-pencil me-1"></i>แก้ไขโปรไฟล์
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-journal-text"></i>
+                </div>
+                <h6>ไดอารี่</h6>
+                <p class="text-muted mb-0">0 บันทึก</p>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-chat-heart"></i>
+                </div>
+                <h6>ข้อความ</h6>
+                <p class="text-muted mb-0">0 ข้อความ</p>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="bi bi-calendar-heart"></i>
+                </div>
+                <h6>วันที่อยู่ด้วยกัน</h6>
+                <p class="text-muted mb-0">- วัน</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Main Settings -->
+            <div class="col-lg-8">
+                <!-- Basic Profile -->
+                <div class="card settings-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-person-lines-fill me-2"></i>
+                            ข้อมูลส่วนตัว
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-light btn-sm view-mode-controls" id="editBasicProfileBtn">
+                                <i class="bi bi-pencil me-1"></i>แก้ไข
+                            </button>
+                            <button class="btn btn-success btn-sm edit-mode-controls" id="saveBasicProfileBtn" style="display: none;">
+                                <i class="bi bi-check me-1"></i>บันทึก
+                            </button>
+                            <button class="btn btn-outline-light btn-sm edit-mode-controls" id="cancelBasicProfileBtn" style="display: none;">
+                                <i class="bi bi-x me-1"></i>ยกเลิก
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="updateProfileForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="firstName" class="form-label">ชื่อจริง <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="firstName" name="firstName" disabled required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="lastName" class="form-label">นามสกุล <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="lastName" name="lastName" disabled required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="displayName" class="form-label">ชื่อที่แสดง</label>
+                                        <input type="text" class="form-control" id="displayName" name="displayName" disabled>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="nickname" class="form-label">ชื่อเล่น</label>
+                                        <input type="text" class="form-control" id="nickname" name="nickname" disabled>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">เพศ</label>
+                                        <div class="mt-2">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="gender" id="genderMale" value="male" disabled>
+                                                <label class="form-check-label" for="genderMale">ชาย</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="gender" id="genderFemale" value="female" disabled>
+                                                <label class="form-check-label" for="genderFemale">หญิง</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="gender" id="genderOther" value="other" disabled>
+                                                <label class="form-check-label" for="genderOther">อื่นๆ</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="birthDate" class="form-label">วันเกิด</label>
+                                        <input type="date" class="form-control" id="birthDate" name="birthDate" disabled>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">เบอร์โทรศัพท์</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label for="bio" class="form-label">เกี่ยวกับฉัน</label>
+                                <textarea class="form-control" id="bio" name="bio" rows="3" disabled placeholder="เล่าเรื่องราวเกี่ยวกับตัวคุณ..."></textarea>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Preferences -->
+                <div class="card settings-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-gear me-2"></i>
+                            ตั้งค่าการใช้งาน
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-light btn-sm view-mode-controls" id="editPreferencesBtn">
+                                <i class="bi bi-pencil me-1"></i>แก้ไข
+                            </button>
+                            <button class="btn btn-success btn-sm edit-mode-controls" id="savePreferencesBtn" style="display: none;">
+                                <i class="bi bi-check me-1"></i>บันทึก
+                            </button>
+                            <button class="btn btn-outline-light btn-sm edit-mode-controls" id="cancelPreferencesBtn" style="display: none;">
+                                <i class="bi bi-x me-1"></i>ยกเลิก
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="preferencesForm">
+                            <h6 class="section-title">การแจ้งเตือน</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="notificationChat" name="notificationChat" disabled>
+                                        <label class="form-check-label" for="notificationChat">แจ้งเตือนข้อความแชท</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="notificationDiary" name="notificationDiary" disabled>
+                                        <label class="form-check-label" for="notificationDiary">แจ้งเตือนไดอารี่</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="notificationPush" name="notificationPush" disabled>
+                                        <label class="form-check-label" for="notificationPush">แจ้งเตือนผ่านเบราว์เซอร์</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="notificationEmail" name="notificationEmail" disabled>
+                                        <label class="form-check-label" for="notificationEmail">แจ้งเตือนผ่านอีเมล</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="section-title">ความเป็นส่วนตัว</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="diaryDefault" class="form-label">ไดอารี่เริ่มต้น</label>
+                                        <select class="form-select" id="diaryDefault" name="diaryDefault" disabled>
+                                            <option value="private">ส่วนตัว</option>
+                                            <option value="shared">แชร์กับคู่รัก</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="profileVisibility" class="form-label">การมองเห็นโปรไฟล์</label>
+                                        <select class="form-select" id="profileVisibility" name="profileVisibility" disabled>
+                                            <option value="private">ส่วนตัว</option>
+                                            <option value="partner">คู่รักเท่านั้น</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="lastSeenVisible" name="lastSeenVisible" disabled>
+                                        <label class="form-check-label" for="lastSeenVisible">แสดงเวลาออนไลน์ล่าสุด</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="section-title">การแสดงผล</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="language" class="form-label">ภาษา</label>
+                                        <select class="form-select" id="language" name="language" disabled>
+                                            <option value="th">ไทย</option>
+                                            <option value="en">English</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="timezone" class="form-label">เขตเวลา</label>
+                                        <select class="form-select" id="timezone" name="timezone" disabled>
+                                            <option value="Asia/Bangkok">เวลาไทย (GMT+7)</option>
+                                            <option value="UTC">UTC (GMT+0)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Security Settings -->
+                <div class="card settings-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-shield-lock me-2"></i>
+                            ความปลอดภัย
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6><i class="bi bi-envelope-at me-2"></i>เปลี่ยนอีเมล</h6>
+                                    <p class="text-muted small">อีเมลปัจจุบัน: <span id="currentEmailDisplay">กำลังโหลด...</span></p>
+                                    <button class="btn btn-outline-primary btn-sm" id="editEmailBtn">
+                                        <i class="bi bi-pencil me-1"></i>เปลี่ยนอีเมล
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6><i class="bi bi-key me-2"></i>เปลี่ยนรหัสผ่าน</h6>
+                                    <p class="text-muted small">รหัสผ่านล่าสุด: ไม่เคยเปลี่ยน</p>
+                                    <button class="btn btn-outline-primary btn-sm" id="editPasswordBtn">
+                                        <i class="bi bi-pencil me-1"></i>เปลี่ยนรหัสผ่าน
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Change Email Form -->
+                        <div id="changeEmailForm" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                การเปลี่ยนอีเมลจะต้องยืนยันตัวตนด้วยรหัสผ่านปัจจุบัน
+                            </div>
+                            <form>
+                                <div class="mb-3">
+                                    <label for="newEmail" class="form-label">อีเมลใหม่ <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control" id="newEmail" name="newEmail" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="currentPasswordEmail" class="form-label">รหัสผ่านปัจจุบัน <span class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="currentPasswordEmail" name="currentPasswordEmail" required>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="toggleEmailFormVisibility()">
+                                        <i class="bi bi-x me-1"></i>ยกเลิก
+                                    </button>
+                                    <button type="submit" class="btn btn-primary" id="changeEmailBtn">
+                                        <i class="bi bi-check-circle me-1"></i>เปลี่ยนอีเมล
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Change Password Form -->
+                        <div id="changePasswordForm" style="display: none;">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-shield-exclamation me-2"></i>
+                                การเปลี่ยนรหัสผ่านจะทำให้คุณออกจากระบบในอุปกรณ์อื่น
+                            </div>
+                            <form>
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">รหัสผ่านปัจจุบัน <span class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="currentPassword" name="currentPassword" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">รหัสผ่านใหม่ <span class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="newPassword" name="newPassword" required>
+                                    <div class="password-strength mt-2">
+                                        <div class="progress" style="height: 5px;">
+                                            <div class="progress-bar" id="passwordStrengthBar" style="width: 0%"></div>
+                                        </div>
+                                        <small class="text-muted" id="passwordStrengthText">ความแข็งแกร่งของรหัสผ่าน</small>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">ยืนยันรหัสผ่านใหม่ <span class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordFormVisibility()">
+                                        <i class="bi bi-x me-1"></i>ยกเลิก
+                                    </button>
+                                    <button type="submit" class="btn btn-primary" id="changePasswordBtn">
+                                        <i class="bi bi-check-circle me-1"></i>เปลี่ยนรหัสผ่าน
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Partner Information -->
+                <div class="card settings-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-heart me-2"></i>
+                            ข้อมูลคู่รัก
+                        </h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div id="partnerInfo">
+                            <i class="bi bi-heart-break display-6 text-muted mb-3"></i>
+                            <p class="text-muted">ยังไม่มีคู่รัก</p>
+                            <button class="btn btn-primary btn-sm">
+                                <i class="bi bi-plus me-1"></i>เชื่อมต่อกับคู่รัก
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Info -->
+                <div class="card settings-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-info-circle me-2"></i>
+                            ข้อมูลเพิ่มเติม
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span><i class="bi bi-gender-ambiguous me-2"></i>เพศ:</span>
+                            <span id="userGender">ไม่ระบุ</span>
+                        </div>
+                        <div class="info-row">
+                            <span><i class="bi bi-telephone me-2"></i>เบอร์โทร:</span>
+                            <span id="userPhone">ไม่ระบุ</span>
+                        </div>
+                        <div class="info-row">
+                            <span><i class="bi bi-cake me-2"></i>วันเกิด:</span>
+                            <span id="userBirthDate">ไม่ระบุ</span>
+                        </div>
+                        <div class="info-row">
+                            <span><i class="bi bi-globe me-2"></i>เขตเวลา:</span>
+                            <span id="userTimezone">เวลาไทย</span>
+                        </div>
+                        <div class="info-row">
+                            <span><i class="bi bi-translate me-2"></i>ภาษา:</span>
+                            <span id="userLanguage">ไทย</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="card settings-card">
+                    <div class="card-header bg-danger">
+                        <h5 class="mb-0 text-white">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            การดำเนินการอันตราย
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="danger-zone">
+                            <h6 class="text-danger">ลบบัญชี</h6>
+                            <p class="text-muted small mb-3">การดำเนินการนี้ไม่สามารถย้อนกลับได้ ข้อมูลทั้งหมดจะถูกลบอย่างถาวร</p>
+                            <button class="btn btn-outline-danger w-100" id="deleteAccountBtn">
+                                <i class="bi bi-trash me-2"></i>ลบบัญชี
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Core dependencies - loaded in order -->
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/loading.js"></script>
+    <script src="../js/auth.js"></script>
+    
+    <!-- User management -->
+    <script src="../js/user-info.js"></script>
+    
+    <!-- Settings page script -->
+    <script src="../js/settings.js"></script>
+</body>
+</html>

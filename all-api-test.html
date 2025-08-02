@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neko U - API Functions Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .api-section {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+        }
+        .api-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            margin: 0;
+        }
+        .test-result {
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .endpoint-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin: 10px 0;
+            padding: 15px;
+        }
+        .method-badge {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+        .method-get { background: #28a745; color: white; }
+        .method-post { background: #007bff; color: white; }
+        .method-put { background: #ffc107; color: black; }
+        .method-patch { background: #17a2b8; color: white; }
+        .method-delete { background: #dc3545; color: white; }
+        .status-waiting { color: #6c757d; }
+        .status-success { color: #28a745; }
+        .status-error { color: #dc3545; }
+        .status-testing { color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">🐱 Neko U - Complete API Functions Test</h1>
+                
+                <!-- User Info Panel -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-person-circle"></i> User Info & Controls</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Test User Credentials:</h6>
+                                <p><strong>Username:</strong> komkem<br>
+                                <strong>Password:</strong> 062191</p>
+                                
+                                <button class="btn btn-success me-2" onclick="loginTestUser()">
+                                    <i class="bi bi-box-arrow-in-right"></i> Login Test User
+                                </button>
+                                <button class="btn btn-warning me-2" onclick="checkHealth()">
+                                    <i class="bi bi-heart-pulse"></i> Health Check
+                                </button>
+                                <button class="btn btn-info" onclick="clearResults()">
+                                    <i class="bi bi-trash"></i> Clear Results
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <div id="userStatus" class="alert alert-secondary">
+                                    <strong>Status:</strong> <span id="loginStatus">Not logged in</span><br>
+                                    <strong>User ID:</strong> <span id="userId">-</span><br>
+                                    <strong>Token:</strong> <span id="tokenStatus">No token</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Results -->
+                <div class="card mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0"><i class="bi bi-terminal"></i> API Test Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="globalResults" class="test-result">
+                            Ready to test API functions...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- User Management -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">👤 User Management</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/users/login</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testLogin()">Test Login</button>
+                            <span id="status-login" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/users/username/:username</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testCheckUsername()">Check Username</button>
+                            <span id="status-check-username" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/users/:userId</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testGetUser()">Get User Profile</button>
+                            <span id="status-get-user" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/users/:userId/generate-partner-code</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testGeneratePartnerCode()">Generate Partner Code</button>
+                            <span id="status-partner-code" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diary Management -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">📝 Diary Management</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/diaries</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testGetDiaries()">Get Diaries</button>
+                            <span id="status-get-diaries" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/:userId/diaries</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testCreateDiary()">Create Diary</button>
+                            <span id="status-create-diary" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/diaries/stats</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testDiaryStats()">Get Diary Stats</button>
+                            <span id="status-diary-stats" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/diaries/shared</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testSharedDiaries()">Get Shared Diaries</button>
+                            <span id="status-shared-diaries" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Management -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">💬 Chat Management</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/messages/latest</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testLatestMessages()">Get Latest Messages</button>
+                            <span id="status-latest-messages" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/messages/stats</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testChatStats()">Get Chat Stats</button>
+                            <span id="status-chat-stats" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/messages/unread-count</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testUnreadCount()">Get Unread Count</button>
+                            <span id="status-unread-count" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/:userId/messages</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testSendMessage()">Send Message</button>
+                            <span id="status-send-message" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Todo Management -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">✅ Todo Management</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/todos</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testGetTodos()">Get Todos</button>
+                            <span id="status-get-todos" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/:userId/todos</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testCreateTodo()">Create Todo</button>
+                            <span id="status-create-todo" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/todos/stats</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testTodoStats()">Get Todo Stats</button>
+                            <span id="status-todo-stats" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/todos/upcoming</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testUpcomingTodos()">Get Upcoming Todos</button>
+                            <span id="status-upcoming-todos" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pomodoro Management -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">🍅 Pomodoro Management</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/pomodoro/current</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testCurrentPomodoro()">Get Current Session</button>
+                            <span id="status-current-pomodoro" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/:userId/pomodoro/start</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testStartPomodoro()">Start Session</button>
+                            <span id="status-start-pomodoro" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/pomodoro/stats</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testPomodoroStats()">Get Pomodoro Stats</button>
+                            <span id="status-pomodoro-stats" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/pomodoro/history</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testPomodoroHistory()">Get History</button>
+                            <span id="status-pomodoro-history" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Math Learning -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">🧮 Math Learning</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/:userId/math/generate</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testGenerateMath()">Generate Problem</button>
+                            <span id="status-generate-math" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/math/history</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testMathHistory()">Get Math History</button>
+                            <span id="status-math-history" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/math/stats</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testMathStats()">Get Math Stats</button>
+                            <span id="status-math-stats" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/math/trend</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testLearningTrend()">Get Learning Trend</button>
+                            <span id="status-learning-trend" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Neko Chat -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">🐱 Neko Chat</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-post">POST</span>/api/:userId/neko/chat</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testNekoChat()">Chat with Neko</button>
+                            <span id="status-neko-chat" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/neko/conversations</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testNekoConversations()">Get Conversations</button>
+                            <span id="status-neko-conversations" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/neko/advice</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testDailyAdvice()">Get Daily Advice</button>
+                            <span id="status-daily-advice" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/neko/greeting</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testMorningGreeting()">Get Morning Greeting</button>
+                            <span id="status-morning-greeting" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard -->
+            <div class="col-lg-6">
+                <div class="api-section">
+                    <h3 class="api-header">📊 Dashboard</h3>
+                    <div class="p-3">
+                        <div class="endpoint-card">
+                            <h6><span class="method-badge method-get">GET</span>/api/:userId/dashboard</h6>
+                            <button class="btn btn-sm btn-primary" onclick="testDashboard()">Get Dashboard Data</button>
+                            <span id="status-dashboard" class="status-waiting ms-2">⏳ Ready</span>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-success" onclick="testAllEndpoints()">
+                                <i class="bi bi-play-circle"></i> Test All Endpoints
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api-functions.js"></script>
+    <script>
+        let currentUserId = null;
+
+        function log(message) {
+            const results = document.getElementById('globalResults');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML += `[${timestamp}] ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function updateStatus(elementId, status, isSuccess = null) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            element.className = 'ms-2 ' + (
+                isSuccess === true ? 'status-success' :
+                isSuccess === false ? 'status-error' :
+                'status-testing'
+            );
+            element.innerHTML = status;
+        }
+
+        function clearResults() {
+            document.getElementById('globalResults').innerHTML = 'Results cleared...\n';
+        }
+
+        async function checkHealth() {
+            try {
+                log('🏥 Testing health check...');
+                updateStatus('status-health', '⏳ Testing...', null);
+                
+                const result = await nekoAPI.healthCheck();
+                log(`✅ Health check successful: ${result.message}`);
+                updateStatus('status-health', '✅ Healthy', true);
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`);
+                updateStatus('status-health', '❌ Failed', false);
+            }
+        }
+
+        async function loginTestUser() {
+            try {
+                log('🔐 Attempting to login test user...');
+                
+                const result = await nekoAPI.loginUser('komkem', '062191');
+                
+                if (result.success) {
+                    nekoAPI.setToken(result.data.token);
+                    currentUserId = result.data.user.id;
+                    
+                    log(`✅ Login successful! User: ${result.data.user.username}`);
+                    
+                    // Update UI
+                    document.getElementById('loginStatus').textContent = 'Logged in as ' + result.data.user.username;
+                    document.getElementById('userId').textContent = currentUserId;
+                    document.getElementById('tokenStatus').textContent = 'Token available';
+                    document.getElementById('userStatus').className = 'alert alert-success';
+                } else {
+                    throw new Error(result.message || 'Login failed');
+                }
+            } catch (error) {
+                log(`❌ Login failed: ${error.message}`);
+                document.getElementById('userStatus').className = 'alert alert-danger';
+                document.getElementById('loginStatus').textContent = 'Login failed';
+            }
+        }
+
+        // User Management Tests
+        async function testLogin() {
+            try {
+                updateStatus('status-login', '⏳ Testing...', null);
+                const result = await nekoAPI.loginUser('komkem', '062191');
+                log(`✅ LOGIN: ${JSON.stringify(result)}`);
+                updateStatus('status-login', '✅ Success', true);
+            } catch (error) {
+                log(`❌ LOGIN ERROR: ${error.message}`);
+                updateStatus('status-login', '❌ Failed', false);
+            }
+        }
+
+        async function testCheckUsername() {
+            try {
+                updateStatus('status-check-username', '⏳ Testing...', null);
+                const result = await nekoAPI.checkUsername('komkem');
+                log(`✅ CHECK USERNAME: ${JSON.stringify(result)}`);
+                updateStatus('status-check-username', '✅ Success', true);
+            } catch (error) {
+                log(`❌ CHECK USERNAME ERROR: ${error.message}`);
+                updateStatus('status-check-username', '❌ Failed', false);
+            }
+        }
+
+        async function testGetUser() {
+            if (!currentUserId) {
+                log('❌ GET USER: Need to login first');
+                updateStatus('status-get-user', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-get-user', '⏳ Testing...', null);
+                const result = await nekoAPI.getUserById(currentUserId);
+                log(`✅ GET USER: ${JSON.stringify(result)}`);
+                updateStatus('status-get-user', '✅ Success', true);
+            } catch (error) {
+                log(`❌ GET USER ERROR: ${error.message}`);
+                updateStatus('status-get-user', '❌ Failed', false);
+            }
+        }
+
+        async function testGeneratePartnerCode() {
+            if (!currentUserId) {
+                log('❌ PARTNER CODE: Need to login first');
+                updateStatus('status-partner-code', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-partner-code', '⏳ Testing...', null);
+                const result = await nekoAPI.generatePartnerCode(currentUserId);
+                log(`✅ PARTNER CODE: ${JSON.stringify(result)}`);
+                updateStatus('status-partner-code', '✅ Success', true);
+            } catch (error) {
+                log(`❌ PARTNER CODE ERROR: ${error.message}`);
+                updateStatus('status-partner-code', '❌ Failed', false);
+            }
+        }
+
+        // Diary Tests
+        async function testGetDiaries() {
+            if (!currentUserId) {
+                log('❌ GET DIARIES: Need to login first');
+                updateStatus('status-get-diaries', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-get-diaries', '⏳ Testing...', null);
+                const result = await nekoAPI.getUserDiaries(currentUserId);
+                log(`✅ GET DIARIES: ${JSON.stringify(result)}`);
+                updateStatus('status-get-diaries', '✅ Success', true);
+            } catch (error) {
+                log(`❌ GET DIARIES ERROR: ${error.message}`);
+                updateStatus('status-get-diaries', '❌ Failed', false);
+            }
+        }
+
+        async function testCreateDiary() {
+            if (!currentUserId) {
+                log('❌ CREATE DIARY: Need to login first');
+                updateStatus('status-create-diary', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-create-diary', '⏳ Testing...', null);
+                const diaryData = {
+                    title: 'Test Diary Entry',
+                    content: 'This is a test diary entry created by API function test.',
+                    mood: 'happy',
+                    category: 'personal',
+                    is_shared: false
+                };
+                
+                const result = await nekoAPI.createDiary(currentUserId, diaryData);
+                log(`✅ CREATE DIARY: ${JSON.stringify(result)}`);
+                updateStatus('status-create-diary', '✅ Success', true);
+            } catch (error) {
+                log(`❌ CREATE DIARY ERROR: ${error.message}`);
+                updateStatus('status-create-diary', '❌ Failed', false);
+            }
+        }
+
+        async function testDiaryStats() {
+            if (!currentUserId) {
+                log('❌ DIARY STATS: Need to login first');
+                updateStatus('status-diary-stats', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-diary-stats', '⏳ Testing...', null);
+                const result = await nekoAPI.getDiaryStats(currentUserId);
+                log(`✅ DIARY STATS: ${JSON.stringify(result)}`);
+                updateStatus('status-diary-stats', '✅ Success', true);
+            } catch (error) {
+                log(`❌ DIARY STATS ERROR: ${error.message}`);
+                updateStatus('status-diary-stats', '❌ Failed', false);
+            }
+        }
+
+        async function testSharedDiaries() {
+            if (!currentUserId) {
+                log('❌ SHARED DIARIES: Need to login first');
+                updateStatus('status-shared-diaries', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-shared-diaries', '⏳ Testing...', null);
+                const result = await nekoAPI.getSharedDiaries(currentUserId);
+                log(`✅ SHARED DIARIES: ${JSON.stringify(result)}`);
+                updateStatus('status-shared-diaries', '✅ Success', true);
+            } catch (error) {
+                log(`❌ SHARED DIARIES ERROR: ${error.message}`);
+                updateStatus('status-shared-diaries', '❌ Failed', false);
+            }
+        }
+
+        // Chat Tests
+        async function testLatestMessages() {
+            if (!currentUserId) {
+                log('❌ LATEST MESSAGES: Need to login first');
+                updateStatus('status-latest-messages', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-latest-messages', '⏳ Testing...', null);
+                const result = await nekoAPI.getLatestMessages(currentUserId);
+                log(`✅ LATEST MESSAGES: ${JSON.stringify(result)}`);
+                updateStatus('status-latest-messages', '✅ Success', true);
+            } catch (error) {
+                log(`❌ LATEST MESSAGES ERROR: ${error.message}`);
+                updateStatus('status-latest-messages', '❌ Failed', false);
+            }
+        }
+
+        async function testChatStats() {
+            if (!currentUserId) {
+                log('❌ CHAT STATS: Need to login first');
+                updateStatus('status-chat-stats', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-chat-stats', '⏳ Testing...', null);
+                const result = await nekoAPI.getChatStats(currentUserId);
+                log(`✅ CHAT STATS: ${JSON.stringify(result)}`);
+                updateStatus('status-chat-stats', '✅ Success', true);
+            } catch (error) {
+                log(`❌ CHAT STATS ERROR: ${error.message}`);
+                updateStatus('status-chat-stats', '❌ Failed', false);
+            }
+        }
+
+        async function testUnreadCount() {
+            if (!currentUserId) {
+                log('❌ UNREAD COUNT: Need to login first');
+                updateStatus('status-unread-count', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-unread-count', '⏳ Testing...', null);
+                const result = await nekoAPI.getUnreadCount(currentUserId);
+                log(`✅ UNREAD COUNT: ${JSON.stringify(result)}`);
+                updateStatus('status-unread-count', '✅ Success', true);
+            } catch (error) {
+                log(`❌ UNREAD COUNT ERROR: ${error.message}`);
+                updateStatus('status-unread-count', '❌ Failed', false);
+            }
+        }
+
+        async function testSendMessage() {
+            if (!currentUserId) {
+                log('❌ SEND MESSAGE: Need to login first');
+                updateStatus('status-send-message', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-send-message', '⏳ Testing...', null);
+                const messageData = {
+                    content: 'Test message from API function test',
+                    message_type: 'text'
+                };
+                
+                const result = await nekoAPI.sendMessage(currentUserId, messageData);
+                log(`✅ SEND MESSAGE: ${JSON.stringify(result)}`);
+                updateStatus('status-send-message', '✅ Success', true);
+            } catch (error) {
+                log(`❌ SEND MESSAGE ERROR: ${error.message}`);
+                updateStatus('status-send-message', '❌ Failed', false);
+            }
+        }
+
+        // Todo Tests
+        async function testGetTodos() {
+            if (!currentUserId) {
+                log('❌ GET TODOS: Need to login first');
+                updateStatus('status-get-todos', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-get-todos', '⏳ Testing...', null);
+                const result = await nekoAPI.getUserTodos(currentUserId);
+                log(`✅ GET TODOS: ${JSON.stringify(result)}`);
+                updateStatus('status-get-todos', '✅ Success', true);
+            } catch (error) {
+                log(`❌ GET TODOS ERROR: ${error.message}`);
+                updateStatus('status-get-todos', '❌ Failed', false);
+            }
+        }
+
+        async function testCreateTodo() {
+            if (!currentUserId) {
+                log('❌ CREATE TODO: Need to login first');
+                updateStatus('status-create-todo', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-create-todo', '⏳ Testing...', null);
+                const todoData = {
+                    title: 'Test Todo Item',
+                    description: 'This is a test todo created by API function test.',
+                    priority: 'medium',
+                    category: 'work',
+                    due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+                };
+                
+                const result = await nekoAPI.createTodo(currentUserId, todoData);
+                log(`✅ CREATE TODO: ${JSON.stringify(result)}`);
+                updateStatus('status-create-todo', '✅ Success', true);
+            } catch (error) {
+                log(`❌ CREATE TODO ERROR: ${error.message}`);
+                updateStatus('status-create-todo', '❌ Failed', false);
+            }
+        }
+
+        async function testTodoStats() {
+            if (!currentUserId) {
+                log('❌ TODO STATS: Need to login first');
+                updateStatus('status-todo-stats', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-todo-stats', '⏳ Testing...', null);
+                const result = await nekoAPI.getTodoStats(currentUserId);
+                log(`✅ TODO STATS: ${JSON.stringify(result)}`);
+                updateStatus('status-todo-stats', '✅ Success', true);
+            } catch (error) {
+                log(`❌ TODO STATS ERROR: ${error.message}`);
+                updateStatus('status-todo-stats', '❌ Failed', false);
+            }
+        }
+
+        async function testUpcomingTodos() {
+            if (!currentUserId) {
+                log('❌ UPCOMING TODOS: Need to login first');
+                updateStatus('status-upcoming-todos', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-upcoming-todos', '⏳ Testing...', null);
+                const result = await nekoAPI.getUpcomingTodos(currentUserId);
+                log(`✅ UPCOMING TODOS: ${JSON.stringify(result)}`);
+                updateStatus('status-upcoming-todos', '✅ Success', true);
+            } catch (error) {
+                log(`❌ UPCOMING TODOS ERROR: ${error.message}`);
+                updateStatus('status-upcoming-todos', '❌ Failed', false);
+            }
+        }
+
+        // Pomodoro Tests
+        async function testCurrentPomodoro() {
+            if (!currentUserId) {
+                log('❌ CURRENT POMODORO: Need to login first');
+                updateStatus('status-current-pomodoro', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-current-pomodoro', '⏳ Testing...', null);
+                const result = await nekoAPI.getCurrentPomodoroSession(currentUserId);
+                log(`✅ CURRENT POMODORO: ${JSON.stringify(result)}`);
+                updateStatus('status-current-pomodoro', '✅ Success', true);
+            } catch (error) {
+                log(`❌ CURRENT POMODORO ERROR: ${error.message}`);
+                updateStatus('status-current-pomodoro', '❌ Failed', false);
+            }
+        }
+
+        async function testStartPomodoro() {
+            if (!currentUserId) {
+                log('❌ START POMODORO: Need to login first');
+                updateStatus('status-start-pomodoro', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-start-pomodoro', '⏳ Testing...', null);
+                const sessionData = {
+                    session_type: 'work',
+                    duration: 25,
+                    task_name: 'API Function Testing'
+                };
+                
+                const result = await nekoAPI.startPomodoroSession(currentUserId, sessionData);
+                log(`✅ START POMODORO: ${JSON.stringify(result)}`);
+                updateStatus('status-start-pomodoro', '✅ Success', true);
+            } catch (error) {
+                log(`❌ START POMODORO ERROR: ${error.message}`);
+                updateStatus('status-start-pomodoro', '❌ Failed', false);
+            }
+        }
+
+        async function testPomodoroStats() {
+            if (!currentUserId) {
+                log('❌ POMODORO STATS: Need to login first');
+                updateStatus('status-pomodoro-stats', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-pomodoro-stats', '⏳ Testing...', null);
+                const result = await nekoAPI.getPomodoroStats(currentUserId);
+                log(`✅ POMODORO STATS: ${JSON.stringify(result)}`);
+                updateStatus('status-pomodoro-stats', '✅ Success', true);
+            } catch (error) {
+                log(`❌ POMODORO STATS ERROR: ${error.message}`);
+                updateStatus('status-pomodoro-stats', '❌ Failed', false);
+            }
+        }
+
+        async function testPomodoroHistory() {
+            if (!currentUserId) {
+                log('❌ POMODORO HISTORY: Need to login first');
+                updateStatus('status-pomodoro-history', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-pomodoro-history', '⏳ Testing...', null);
+                const result = await nekoAPI.getPomodoroHistory(currentUserId);
+                log(`✅ POMODORO HISTORY: ${JSON.stringify(result)}`);
+                updateStatus('status-pomodoro-history', '✅ Success', true);
+            } catch (error) {
+                log(`❌ POMODORO HISTORY ERROR: ${error.message}`);
+                updateStatus('status-pomodoro-history', '❌ Failed', false);
+            }
+        }
+
+        // Math Tests
+        async function testGenerateMath() {
+            if (!currentUserId) {
+                log('❌ GENERATE MATH: Need to login first');
+                updateStatus('status-generate-math', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-generate-math', '⏳ Testing...', null);
+                const params = {
+                    difficulty: 'easy',
+                    problem_type: 'addition',
+                    count: 1
+                };
+                
+                const result = await nekoAPI.generateMathProblem(currentUserId, params);
+                log(`✅ GENERATE MATH: ${JSON.stringify(result)}`);
+                updateStatus('status-generate-math', '✅ Success', true);
+            } catch (error) {
+                log(`❌ GENERATE MATH ERROR: ${error.message}`);
+                updateStatus('status-generate-math', '❌ Failed', false);
+            }
+        }
+
+        async function testMathHistory() {
+            if (!currentUserId) {
+                log('❌ MATH HISTORY: Need to login first');
+                updateStatus('status-math-history', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-math-history', '⏳ Testing...', null);
+                const result = await nekoAPI.getMathHistory(currentUserId);
+                log(`✅ MATH HISTORY: ${JSON.stringify(result)}`);
+                updateStatus('status-math-history', '✅ Success', true);
+            } catch (error) {
+                log(`❌ MATH HISTORY ERROR: ${error.message}`);
+                updateStatus('status-math-history', '❌ Failed', false);
+            }
+        }
+
+        async function testMathStats() {
+            if (!currentUserId) {
+                log('❌ MATH STATS: Need to login first');
+                updateStatus('status-math-stats', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-math-stats', '⏳ Testing...', null);
+                const result = await nekoAPI.getMathStats(currentUserId);
+                log(`✅ MATH STATS: ${JSON.stringify(result)}`);
+                updateStatus('status-math-stats', '✅ Success', true);
+            } catch (error) {
+                log(`❌ MATH STATS ERROR: ${error.message}`);
+                updateStatus('status-math-stats', '❌ Failed', false);
+            }
+        }
+
+        async function testLearningTrend() {
+            if (!currentUserId) {
+                log('❌ LEARNING TREND: Need to login first');
+                updateStatus('status-learning-trend', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-learning-trend', '⏳ Testing...', null);
+                const result = await nekoAPI.getLearningTrend(currentUserId);
+                log(`✅ LEARNING TREND: ${JSON.stringify(result)}`);
+                updateStatus('status-learning-trend', '✅ Success', true);
+            } catch (error) {
+                log(`❌ LEARNING TREND ERROR: ${error.message}`);
+                updateStatus('status-learning-trend', '❌ Failed', false);
+            }
+        }
+
+        // Neko Chat Tests
+        async function testNekoChat() {
+            if (!currentUserId) {
+                log('❌ NEKO CHAT: Need to login first');
+                updateStatus('status-neko-chat', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-neko-chat', '⏳ Testing...', null);
+                const result = await nekoAPI.chatWithNeko(currentUserId, 'Hello Neko! This is a test message.');
+                log(`✅ NEKO CHAT: ${JSON.stringify(result)}`);
+                updateStatus('status-neko-chat', '✅ Success', true);
+            } catch (error) {
+                log(`❌ NEKO CHAT ERROR: ${error.message}`);
+                updateStatus('status-neko-chat', '❌ Failed', false);
+            }
+        }
+
+        async function testNekoConversations() {
+            if (!currentUserId) {
+                log('❌ NEKO CONVERSATIONS: Need to login first');
+                updateStatus('status-neko-conversations', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-neko-conversations', '⏳ Testing...', null);
+                const result = await nekoAPI.getNekoConversationHistory(currentUserId);
+                log(`✅ NEKO CONVERSATIONS: ${JSON.stringify(result)}`);
+                updateStatus('status-neko-conversations', '✅ Success', true);
+            } catch (error) {
+                log(`❌ NEKO CONVERSATIONS ERROR: ${error.message}`);
+                updateStatus('status-neko-conversations', '❌ Failed', false);
+            }
+        }
+
+        async function testDailyAdvice() {
+            if (!currentUserId) {
+                log('❌ DAILY ADVICE: Need to login first');
+                updateStatus('status-daily-advice', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-daily-advice', '⏳ Testing...', null);
+                const result = await nekoAPI.getDailyAdvice(currentUserId);
+                log(`✅ DAILY ADVICE: ${JSON.stringify(result)}`);
+                updateStatus('status-daily-advice', '✅ Success', true);
+            } catch (error) {
+                log(`❌ DAILY ADVICE ERROR: ${error.message}`);
+                updateStatus('status-daily-advice', '❌ Failed', false);
+            }
+        }
+
+        async function testMorningGreeting() {
+            if (!currentUserId) {
+                log('❌ MORNING GREETING: Need to login first');
+                updateStatus('status-morning-greeting', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-morning-greeting', '⏳ Testing...', null);
+                const result = await nekoAPI.getMorningGreeting(currentUserId);
+                log(`✅ MORNING GREETING: ${JSON.stringify(result)}`);
+                updateStatus('status-morning-greeting', '✅ Success', true);
+            } catch (error) {
+                log(`❌ MORNING GREETING ERROR: ${error.message}`);
+                updateStatus('status-morning-greeting', '❌ Failed', false);
+            }
+        }
+
+        // Dashboard Test
+        async function testDashboard() {
+            if (!currentUserId) {
+                log('❌ DASHBOARD: Need to login first');
+                updateStatus('status-dashboard', '❌ No login', false);
+                return;
+            }
+            
+            try {
+                updateStatus('status-dashboard', '⏳ Testing...', null);
+                const result = await nekoAPI.getDashboardData(currentUserId);
+                log(`✅ DASHBOARD: ${JSON.stringify(result)}`);
+                updateStatus('status-dashboard', '✅ Success', true);
+            } catch (error) {
+                log(`❌ DASHBOARD ERROR: ${error.message}`);
+                updateStatus('status-dashboard', '❌ Failed', false);
+            }
+        }
+
+        // Test All Endpoints
+        async function testAllEndpoints() {
+            if (!currentUserId) {
+                alert('Please login first before testing all endpoints!');
+                return;
+            }
+
+            log('🚀 Starting comprehensive API test...');
+            
+            const tests = [
+                testCheckUsername,
+                testGetUser,
+                testGeneratePartnerCode,
+                testGetDiaries,
+                testCreateDiary,
+                testDiaryStats,
+                testSharedDiaries,
+                testLatestMessages,
+                testChatStats,
+                testUnreadCount,
+                testGetTodos,
+                testCreateTodo,
+                testTodoStats,
+                testUpcomingTodos,
+                testCurrentPomodoro,
+                testStartPomodoro,
+                testPomodoroStats,
+                testPomodoroHistory,
+                testGenerateMath,
+                testMathHistory,
+                testMathStats,
+                testLearningTrend,
+                testNekoChat,
+                testNekoConversations,
+                testDailyAdvice,
+                testMorningGreeting,
+                testDashboard
+            ];
+
+            for (let i = 0; i < tests.length; i++) {
+                log(`📊 Testing endpoint ${i + 1}/${tests.length}...`);
+                await tests[i]();
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay between tests
+            }
+
+            log('🎉 All endpoint tests completed!');
+        }
+
+        // Auto-run health check on page load
+        window.onload = function() {
+            log('🐱 Neko U API Function Tester loaded!');
+            log('📋 Ready to test 50+ API endpoints');
+            checkHealth();
+        };
+    </script>
+</body>
+</html>

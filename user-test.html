@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Test - Neko U</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px;
+        }
+        .test-container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+        }
+        .test-card { 
+            background: white; 
+            border-radius: 15px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+        }
+        .btn-test { 
+            margin: 5px; 
+        }
+        .result { 
+            margin-top: 15px; 
+            padding: 10px; 
+            border-radius: 5px; 
+        }
+        .result-success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+        .result-error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
+        .result-info { 
+            background-color: #d1ecf1; 
+            color: #0c5460; 
+            border: 1px solid #bee5eb; 
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-card">
+            <h1 class="text-center mb-4">🧪 User Test - Neko U</h1>
+            <div class="alert alert-info">
+                <h5>ข้อมูลผู้ใช้ทดสอบ:</h5>
+                <p><strong>Username:</strong> komkem</p>
+                <p><strong>Password:</strong> 062191</p>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <h3>Authentication Tests</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <button class="btn btn-primary btn-test w-100" onclick="testCheckUsername()">
+                        🔍 ตรวจสอบ Username
+                    </button>
+                    <button class="btn btn-success btn-test w-100" onclick="testLogin()">
+                        🔐 ทดสอบ Login
+                    </button>
+                    <button class="btn btn-warning btn-test w-100" onclick="testUserInfo()">
+                        👤 ดูข้อมูลผู้ใช้
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-info btn-test w-100" onclick="testAPI()">
+                        🌐 ทดสอบ API Connection
+                    </button>
+                    <button class="btn btn-secondary btn-test w-100" onclick="clearResults()">
+                        🗑️ ล้างผลลัพธ์
+                    </button>
+                    <button class="btn btn-danger btn-test w-100" onclick="testLogout()">
+                        🚪 ทดสอบ Logout
+                    </button>
+                </div>
+            </div>
+            <div id="test-results"></div>
+        </div>
+
+        <div class="test-card">
+            <h3>Response Logs</h3>
+            <pre id="log-output">พร้อมทดสอบ...</pre>
+        </div>
+
+        <div class="test-card">
+            <h3>Quick Actions</h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <a href="html/index.html" class="btn btn-outline-primary w-100">
+                        ไปหน้า Login
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="test.html" class="btn btn-outline-secondary w-100">
+                        System Test
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="api-test.html" class="btn btn-outline-info w-100">
+                        API Test
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    
+    <script>
+        const testUser = {
+            username: 'komkem',
+            password: '062191'
+        };
+
+        let logContent = '';
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logContent += `[${timestamp}] ${message}\n`;
+            document.getElementById('log-output').textContent = logContent;
+        }
+
+        function showResult(type, title, message) {
+            const resultsDiv = document.getElementById('test-results');
+            const resultHtml = `
+                <div class="result result-${type}">
+                    <h5>${title}</h5>
+                    <p>${message}</p>
+                </div>
+            `;
+            resultsDiv.innerHTML = resultHtml;
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            logContent = '';
+            document.getElementById('log-output').textContent = 'ล้างข้อมูลแล้ว...';
+        }
+
+        async function testCheckUsername() {
+            try {
+                log(`Testing username check for: ${testUser.username}`);
+                showResult('info', 'กำลังตรวจสอบ...', 'กำลังตรวจสอบ username กับ API');
+
+                const response = await fetch(`${API_BASE_URL}/api/users/username/${testUser.username}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                log(`Username check response: ${JSON.stringify(data)}`);
+
+                if (response.ok) {
+                    if (data.success && data.data) {
+                        showResult('success', 'Username พบแล้ว! ✅', 
+                            `Username "${testUser.username}" มีอยู่ในระบบ - พร้อมทดสอบ login`);
+                    } else {
+                        showResult('error', 'Username ไม่พบ ❌', 
+                            `Username "${testUser.username}" ไม่มีในระบบ - ต้องลงทะเบียนก่อน`);
+                    }
+                } else {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+            } catch (error) {
+                log(`Username check error: ${error.message}`);
+                showResult('error', 'ข้อผิดพลาด', `ไม่สามารถตรวจสอบ username ได้: ${error.message}`);
+            }
+        }
+
+        async function testLogin() {
+            try {
+                log(`Testing login for user: ${testUser.username}`);
+                showResult('info', 'กำลังเข้าสู่ระบบ...', 'กำลังทดสอบการ login');
+
+                const response = await fetch(`${API_BASE_URL}/api/users/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: testUser.username,
+                        password: testUser.password
+                    })
+                });
+
+                const data = await response.json();
+                log(`Login response: ${JSON.stringify(data, null, 2)}`);
+
+                if (response.ok && data.success) {
+                    // Save token for further tests
+                    localStorage.setItem('nekouToken', data.data.token);
+                    localStorage.setItem('nekouUser', JSON.stringify(data.data.user));
+                    
+                    showResult('success', 'เข้าสู่ระบบสำเร็จ! 🎉', 
+                        `ยินดีต้อนรับ ${data.data.user.display_name || data.data.user.first_name}! Token ถูกบันทึกแล้ว`);
+                } else {
+                    showResult('error', 'เข้าสู่ระบบไม่สำเร็จ ❌', 
+                        data.message || 'Username หรือ Password ไม่ถูกต้อง');
+                }
+            } catch (error) {
+                log(`Login error: ${error.message}`);
+                showResult('error', 'ข้อผิดพลาด', `ไม่สามารถ login ได้: ${error.message}`);
+            }
+        }
+
+        async function testUserInfo() {
+            try {
+                const token = localStorage.getItem('nekouToken');
+                const userStr = localStorage.getItem('nekouUser');
+
+                if (!token || !userStr) {
+                    showResult('error', 'ไม่พบข้อมูล', 'กรุณา login ก่อนดูข้อมูลผู้ใช้');
+                    return;
+                }
+
+                const user = JSON.parse(userStr);
+                log(`Current user info: ${JSON.stringify(user, null, 2)}`);
+
+                showResult('success', 'ข้อมูลผู้ใช้ปัจจุบัน', `
+                    <strong>ID:</strong> ${user.id}<br>
+                    <strong>Username:</strong> ${user.username}<br>
+                    <strong>ชื่อ:</strong> ${user.first_name} ${user.last_name}<br>
+                    <strong>อีเมล:</strong> ${user.email}<br>
+                    <strong>สถานะ:</strong> เข้าสู่ระบบแล้ว
+                `);
+
+            } catch (error) {
+                log(`User info error: ${error.message}`);
+                showResult('error', 'ข้อผิดพลาด', `ไม่สามารถดูข้อมูลผู้ใช้ได้: ${error.message}`);
+            }
+        }
+
+        async function testAPI() {
+            try {
+                log('Testing API connection...');
+                showResult('info', 'กำลังทดสอบ API...', 'กำลังตรวจสอบการเชื่อมต่อ API');
+
+                const response = await fetch(`${API_BASE_URL}/api/auth/check-username?username=test_user`, {
+                    method: 'GET'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`API test successful: ${JSON.stringify(data)}`);
+                    showResult('success', 'API ทำงานได้! ✅', 
+                        `การเชื่อมต่อ ${API_BASE_URL} สำเร็จ`);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                log(`API test error: ${error.message}`);
+                showResult('error', 'API Error', `ไม่สามารถเชื่อมต่อ API ได้: ${error.message}`);
+            }
+        }
+
+        function testLogout() {
+            try {
+                localStorage.removeItem('nekouToken');
+                localStorage.removeItem('nekouUser');
+                
+                log('Logout test completed');
+                showResult('success', 'ออกจากระบบแล้ว', 'ข้อมูล token และ user ถูกลบออกจาก localStorage');
+            } catch (error) {
+                log(`Logout error: ${error.message}`);
+                showResult('error', 'ข้อผิดพลาด', `ไม่สามารถ logout ได้: ${error.message}`);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('User test page loaded');
+            log(`API Base URL: ${API_BASE_URL}`);
+            log(`Test user: ${testUser.username}`);
+        });
+    </script>
+</body>
+</html>

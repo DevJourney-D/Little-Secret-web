@@ -47,12 +47,26 @@ async function handleRegistration(event) {
         // Validate form data
         validateFormData(formData);
         
+        console.log('📝 Attempting registration for user:', formData.username);
+        
         // Register user
         await nekouAuth.register(formData);
         
     } catch (error) {
         console.error('Registration error:', error);
-        showAlert(error.message || 'เกิดข้อผิดพลาดในการลงทะเบียน', 'error');
+        
+        let errorMessage = error.message || 'เกิดข้อผิดพลาดในการลงทะเบียน';
+        
+        // Handle specific error types
+        if (error.message.includes('already exists') || 
+            error.message.includes('duplicate') ||
+            error.message.includes('Username already taken')) {
+            errorMessage = 'ชื่อผู้ใช้หรืออีเมลนี้มีคนใช้แล้ว กรุณาเลือกใหม่';
+        } else if (error.message.includes('CORS')) {
+            errorMessage = 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาเข้าถึงแอปผ่าน http://localhost:3000';
+        }
+        
+        showAlert(errorMessage, 'error');
     }
 }
 

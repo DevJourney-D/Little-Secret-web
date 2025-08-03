@@ -10,10 +10,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const rememberMeCheckbox = document.getElementById('rememberMe');
     
     // Check if user is already logged in
-    if (nekouAuth.isAuthenticated()) {
-        window.location.href = CONFIG.redirectAfterLogin;
-        return;
-    }
+    nekouAuth.isAuthenticated().then(isAuth => {
+        if (isAuth) {
+            console.log('User already authenticated, redirecting to dashboard');
+            window.location.href = CONFIG.redirectAfterLogin;
+        }
+    }).catch(error => {
+        console.log('Authentication check failed:', error);
+        // User not authenticated, stay on login page
+    });
     
     // Load saved username if remember me was checked
     loadSavedUsername();
@@ -65,24 +70,29 @@ async function handleLogin(event) {
             return;
         }
         
-        // Save username if remember me is checked
+        // Save username if remember me is checked (using cookie)
         if (rememberMe) {
-            localStorage.setItem('nekouRememberUsername', username);
+            nekouAuth.setCookie('nekouRememberUsername', username, 30 * 24 * 60); // 30 days
         } else {
-            localStorage.removeItem('nekouRememberUsername');
+            nekouAuth.deleteCookie('nekouRememberUsername');
         }
         
         // Attempt login
+        console.log('🔐 Attempting login for user:', username);
         await nekouAuth.login(username, password);
         
     } catch (error) {
         console.error('Login error:', error);
         
         // Show specific error messages
-        if (error.message.includes('username') || error.message.includes('password')) {
+        if (error.message.includes('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง') || 
+            error.message.includes('Invalid credentials') || 
+            error.message.includes('User not found')) {
             showAlert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+        } else if (error.message.includes('CORS')) {
+            showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาเข้าถึงแอปผ่าน http://localhost:3000', 'error');
         } else if (error.message.includes('network') || error.message.includes('fetch')) {
-            showAlert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง', 'error');
+            showAlert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', 'error');
         } else {
             showAlert(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
         }
@@ -115,9 +125,9 @@ function handleRememberMe() {
     }
 }
 
-// Load saved username
+// Load saved username from cookie
 function loadSavedUsername() {
-    const savedUsername = localStorage.getItem('nekouRememberUsername');
+    const savedUsername = nekouAuth.getCookie('nekouRememberUsername');
     const usernameInput = document.getElementById('username');
     const rememberMeCheckbox = document.getElementById('rememberMe');
     

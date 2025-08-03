@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // ตรวจสอบการเข้าสู่ระบบ
         console.log('🔍 ตรวจสอบการเข้าสู่ระบบ...');
-        const isLoggedIn = await userInfo.isUserLoggedIn();
+        const isLoggedIn = await nekouAuth.isAuthenticated();
         
         console.log('🔐 ผลการตรวจสอบการล็อกอิน:', isLoggedIn);
         
@@ -26,7 +26,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadingIndicator.remove();
             
             // แสดงข้อความแจ้งเตือน
-            utils.showAlert('กรุณาเข้าสู่ระบบก่อนใช้งาน', 'warning');
+            if (typeof showAlert === 'function') {
+                showAlert('กรุณาเข้าสู่ระบบก่อนใช้งาน', 'warning');
+            }
             
             // Redirect to login หลังจาก delay เล็กน้อย
             setTimeout(() => {

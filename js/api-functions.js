@@ -3,7 +3,10 @@
 
 class NekoUAPI {
     constructor() {
-        this.baseURL = 'https://little-secret-api.vercel.app';
+        // Use the same logic as config.js for API base URL
+        this.baseURL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}`  // Development proxy
+            : 'https://little-secret-api.vercel.app';  // Production
         this.token = localStorage.getItem('nekouToken');
     }
 
@@ -12,6 +15,7 @@ class NekoUAPI {
         const url = `${this.baseURL}${endpoint}`;
         const defaultHeaders = {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
         };
 
         if (this.token) {
@@ -19,6 +23,8 @@ class NekoUAPI {
         }
 
         const config = {
+            mode: 'cors',
+            credentials: 'omit',
             headers: defaultHeaders,
             ...options,
             headers: { ...defaultHeaders, ...options.headers }

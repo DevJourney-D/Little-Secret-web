@@ -2,7 +2,7 @@
 // 🔥 New Backend API Integration 🔥
 
 // Backend API Configuration
-const API_BASE_URL = 'https://little-secret-api.vercel.app';  // Production - ใช้ URL ใหม่
+const API_BASE_URL = 'https://little-secret-api.vercel.app';  // Use Vercel API directly
 
 // Supabase Configuration (for realtime features only)
 const SUPABASE_URL = 'https://cnvrikxkxrdeuofbbwkk.supabase.co';
@@ -24,7 +24,7 @@ const CONFIG = {
     version: '2.0.0',
     apiBaseUrl: API_BASE_URL,
     redirectAfterLogin: 'dashboard.html',
-    redirectAfterLogout: 'index.html',
+    redirectAfterLogout: 'index.html', // Login page
     features: {
         realTimeChat: true,
         diarySharing: true,
@@ -38,13 +38,26 @@ const CONFIG = {
 
 // API Helper Functions
 const api = {
+    // Helper function to get cookie
+    getCookie(name) {
+        const nameEQ = name + "=";
+        const ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+        }
+        return null;
+    },
+
     // Generic API request handler
     async request(endpoint, options = {}) {
         const url = `${API_BASE_URL}${endpoint}`;
-        const token = localStorage.getItem('nekouToken');
+        const token = this.getCookie('nekouToken');
         
         const defaultHeaders = {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
         };
         
         if (token) {
@@ -52,6 +65,8 @@ const api = {
         }
         
         const config = {
+            mode: 'cors',
+            credentials: 'omit',
             headers: defaultHeaders,
             ...options,
             headers: { ...defaultHeaders, ...options.headers }
@@ -79,19 +94,43 @@ const api = {
         } catch (error) {
             console.error(`❌ API Error: ${endpoint}`, error);
             
-            // Better error handling for network issues
+            // Better error handling for different error types
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
                 throw new Error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+            } else if (error.message.includes('CORS') || error.message.includes('Access-Control')) {
+                throw new Error('เกิดข้อผิดพลาดในการเชื่อมต่อ API (CORS Error) กรุณาใช้ development server');
+            } else if (error.message.includes('405') || error.message.includes('Method Not Allowed')) {
+                throw new Error('API endpoint ไม่รองรับ method นี้ กรุณาตรวจสอบ API server');
+            } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+                throw new Error('ไม่พบ API endpoint นี้ กรุณาตรวจสอบ URL');
             }
             
             throw error;
         }
     },
 
+    // API Health Check
+    async healthCheck() {
+        try {
+            console.log('🏥 Checking API health...');
+            const response = await this.request('/health', {
+                method: 'GET'
+            });
+            console.log('✅ API Health Check passed:', response);
+            return { success: true, healthy: true, data: response };
+        } catch (error) {
+            console.error('❌ API Health Check failed:', error);
+            return { success: false, healthy: false, error: error.message };
+        }
+    },
+
     // User Authentication
     auth: {
         async login(username, password) {
-            return api.request('/api/users/login', {
+            console.log('📤 Sending login request for:', username);
+            console.log('🌐 Using API URL:', `${API_BASE_URL}/api/users/login`);
+            
+            return await api.request('/api/users/login', {
                 method: 'POST',
                 body: JSON.stringify({ username, password })
             });
@@ -111,6 +150,11 @@ const api = {
                 partner_code: userData.partnerCode || null
             };
             
+            console.log('📤 Sending registration data:', { 
+                ...backendData, 
+                password: '[HIDDEN]' 
+            });
+            
             return api.request('/api/users', {
                 method: 'POST',
                 body: JSON.stringify(backendData)
@@ -118,18 +162,19 @@ const api = {
         },
 
         logout() {
-            localStorage.removeItem('nekouUser');
-            localStorage.removeItem('nekouToken');
+            // Delete auth cookies
+            document.cookie = 'nekouUser=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+            document.cookie = 'nekouToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
             window.location.href = CONFIG.redirectAfterLogout;
         },
 
         getCurrentUser() {
-            const userStr = localStorage.getItem('nekouUser');
+            const userStr = api.getCookie('nekouUser');
             return userStr ? JSON.parse(userStr) : null;
         },
 
         isAuthenticated() {
-            return !!localStorage.getItem('nekouToken');
+            return !!api.getCookie('nekouToken');
         }
     },
 

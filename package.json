@@ -1,0 +1,18 @@
+{
+  "name": "neko-u-web",
+  "version": "1.0.0",
+  "description": "Neko U Web Application",
+  "main": "index.html",
+  "scripts": {
+    "dev": "node proxy-server.js",
+    "start": "node proxy-server.js",
+    "install-deps": "npm install express http-proxy-middleware cors"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^2.0.9"
+  },
+  "author": "DevJourney-D",
+  "license": "MIT"
+}

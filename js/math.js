@@ -228,7 +228,7 @@ async function waitForDependencies() {
     const maxAttempts = 50;
     
     while (attempts < maxAttempts) {
-        if (window.supabase && window.utils) {
+        if (window.nekouAuth && window.api) {
             return true;
         }
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -246,27 +246,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dependenciesLoaded = await waitForDependencies();
     
     try {
-        if (dependenciesLoaded && window.utils && window.supabase) {
-            // Try to get current user from localStorage first
-            currentUser = utils.getCurrentUser();
-            
-            if (currentUser) {
-                console.log('👤 พบข้อมูลผู้ใช้ใน localStorage:', currentUser);
+        if (dependenciesLoaded && window.nekouAuth) {
+            // Check if user is authenticated
+            if (nekouAuth.isAuthenticated()) {
+                currentUser = nekouAuth.getUser();
+                console.log('👤 พบข้อมูลผู้ใช้:', currentUser);
             } else {
-                console.log('⚠️ ไม่พบข้อมูลผู้ใช้ใน localStorage');
-                
-                // Try to get session from Supabase as fallback
-                try {
-                    const { data: { session } } = await window.supabase.auth.getSession();
+                console.log('⚠️ ผู้ใช้ยังไม่ได้เข้าสู่ระบบ กำลังเปลี่ยนเส้นทาง...');
+                window.location.href = '/index.html';
+                return;
+            }
                     if (session && session.user) {
                         console.log('� พบ Supabase session:', session.user.email);
                         // Create a basic user object from Supabase session
                         currentUser = {
                             id: session.user.id,
                             email: session.user.email,
-                            firstName: session.user.user_metadata?.firstName || session.user.email?.split('@')[0] || 'ผู้ใช้',
-                            lastName: session.user.user_metadata?.lastName || ''
-                        };
+                            } else {
+            console.warn('⚠️ Dependencies ไม่พร้อม');
+            window.location.href = '/index.html';
+            return;
+        }
                         // Save to localStorage for future use
                         utils.saveUserSession(currentUser);
                     }
@@ -815,29 +815,11 @@ async function loadMathStats() {
             return;
         }
         
-        if (!window.supabase) {
-            console.warn('⚠️ Supabase ไม่พร้อมใช้งาน ไม่สามารถโหลดสถิติได้');
-            return;
-        }
-        
-        const today = new Date().toISOString().split('T')[0];
-        
-        console.log('📊 กำลังโหลดสถิติสำหรับผู้ใช้:', currentUser.firstName, 'ID:', currentUser.id);
-        
-        // Load today's problems
-        const { data, error } = await window.supabase
-            .from('math_problems')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .gte('created_at', today + 'T00:00:00')
-            .lt('created_at', today + 'T23:59:59')
-            .order('created_at', { ascending: false });
-        
-        if (error) {
-            throw error;
-        }
-        
-        if (data && data.length > 0) {
+        try {
+            const response = await api.math.getAll();
+            const data = response.data || [];
+            
+            if (data.length > 0) {
             totalProblems = data.length;
             correctCount = data.filter(p => p.is_correct).length;
             incorrectCount = totalProblems - correctCount;
@@ -855,6 +837,25 @@ async function loadMathStats() {
                 bestTime: bestTime ? bestTime + 's' : 'ยังไม่มี'
             });
         } else {
+            console.log('📊 โหลดสถิติสำเร็จ:', data.length, 'โจทย์');
+            
+            // Calculate statistics
+            totalProblems = data.length;
+            correctCount = data.filter(p => p.isCorrect || p.is_correct).length;
+            incorrectCount = totalProblems - correctCount;
+            
+            // Find best time
+            const timesArray = data
+                .filter(p => (p.timeSpent || p.time_spent) > 0)
+                .map(p => p.timeSpent || p.time_spent);
+            
+            if (timesArray.length > 0) {
+                bestTime = Math.min(...timesArray);
+            }
+            
+            // Store recent problems
+            recentProblems = data.slice(0, 10);
+        } else {
             console.log('ℹ️', currentUser.firstName, 'ยังไม่มีสถิติวันนี้');
             totalProblems = 0;
             correctCount = 0;
@@ -864,14 +865,13 @@ async function loadMathStats() {
         
         // Update UI stats
         updateStats();
-        
-    } catch (error) {
-        console.error('❌ ข้อผิดพลาดในการโหลดสถิติ:', error);
-        // Show error to user
-        if (typeof utils !== 'undefined' && utils.showAlert) {
-            utils.showAlert('เกิดข้อผิดพลาดในการโหลดสถิติ', 'error');
+        } catch (error) {
+            console.error('❌ ข้อผิดพลาดในการโหลดสถิติ:', error);
+            // Show error to user
+            if (typeof utils !== 'undefined' && utils.showAlert) {
+                utils.showAlert('เกิดข้อผิดพลาดในการโหลดสถิติ', 'error');
+            }
         }
-    }
 }
 
 
@@ -882,36 +882,33 @@ async function saveMathProblem(problem, userAnswer, isCorrect, timeSpent) {
             return;
         }
         
-        if (!window.supabase) {
-            console.warn('⚠️ Supabase ไม่พร้อมใช้งาน ไม่สามารถบันทึกได้');
-            return;
-        }
-        
-        console.log('💾 กำลังบันทึกโจทย์สำหรับผู้ใช้:', currentUser.firstName, 'ID:', currentUser.id);
-        
-        const { error } = await window.supabase
-            .from('math_problems')
-            .insert([{
-                user_id: currentUser.id,
-                problem_text: problem.display,
-                question: problem.display, // Backward compatibility
-                correct_answer: problem.answer.toString(),
-                user_answer: userAnswer.toString(),
-                is_correct: isCorrect,
-                time_spent: timeSpent,
+        try {
+            console.log('💾 กำลังบันทึกโจทย์สำหรับผู้ใช้:', currentUser.firstName, 'ID:', currentUser.id);
+            
+            const mathData = {
+                problemText: problem.display,
+                correctAnswer: problem.answer.toString(),
+                userAnswer: userAnswer.toString(),
+                isCorrect: isCorrect,
+                timeSpent: timeSpent,
                 difficulty: difficulty,
-                operation: problem.operation,
-                problem_type: problem.operation,
-                solved_at: new Date().toISOString(),
-                created_at: new Date().toISOString()
-            }]);
-        
-        if (error) {
-            throw error;
+                operation: problem.operation
+            };
+            
+            const response = await api.math.create(mathData);
+            
+            if (response.success) {
+                console.log('✅ บันทึกโจทย์คณิตศาสตร์เรียบร้อยแล้ว!');
+            } else {
+                throw new Error(response.message || 'Failed to save math problem');
+            }
+        } catch (error) {
+            console.error('❌ ข้อผิดพลาดในการบันทึกโจทย์คณิตศาสตร์:', error);
+            // Show error to user
+            if (typeof utils !== 'undefined' && utils.showAlert) {
+                utils.showAlert('เกิดข้อผิดพลาดในการบันทึกผลลัพธ์', 'error');
+            }
         }
-        
-        console.log('✅ บันทึกโจทย์คณิตศาสตร์เรียบร้อยแล้ว!');
-        
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการบันทึกโจทย์คณิตศาสตร์:', error);
         // Show error to user
@@ -941,29 +938,14 @@ async function logout() {
     }
     
     try {
-        // Clean up PresenceManager before logout
-        if (window.presenceManager) {
-            window.presenceManager.cleanup();
-        }
-        
-        // Sign out from Supabase
-        if (window.supabase) {
-            await window.supabase.auth.signOut();
-        }
-        
-        // Clear local storage
-        if (typeof utils !== 'undefined' && utils.clearUserSession) {
-            utils.clearUserSession();
+        // Use nekouAuth logout
+        if (window.nekouAuth) {
+            await nekouAuth.logout();
         } else {
+            // Fallback: clear local storage and redirect
             localStorage.clear();
             sessionStorage.clear();
-        }
-        
-        // Redirect to login
-        if (typeof utils !== 'undefined' && utils.redirect) {
-            utils.redirect('index.html');
-        } else {
-            window.location.href = 'index.html';
+            window.location.href = '/index.html';
         }
         
     } catch (error) {

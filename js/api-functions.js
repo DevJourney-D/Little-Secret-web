@@ -130,7 +130,7 @@ class NekoUAPI {
     async connectWithPartner(userId, partnerCode) {
         return this.request(`/api/users/${userId}/connect-partner`, {
             method: 'POST',
-            body: JSON.stringify({ partner_code: partnerCode })
+            body: JSON.stringify({ partnerCode: partnerCode })
         });
     }
 
@@ -213,7 +213,7 @@ class NekoUAPI {
     // 💬 CHAT MANAGEMENT
     // Messaging
     async sendMessage(userId, messageData) {
-        return this.request(`/api/${userId}/messages`, {
+        return this.request(`/api/${userId}/chat`, {
             method: 'POST',
             body: JSON.stringify(messageData)
         });
@@ -224,67 +224,10 @@ class NekoUAPI {
         return this.request(`/api/${userId}/messages/${partnerId}${queryString ? '?' + queryString : ''}`);
     }
 
-    async getLatestMessages(userId) {
-        return this.request(`/api/${userId}/messages/latest`);
-    }
-
-    async updateMessage(userId, messageId, messageData) {
-        return this.request(`/api/${userId}/messages/${messageId}`, {
-            method: 'PUT',
-            body: JSON.stringify(messageData)
+    async markMessageAsRead(userId, messageId) {
+        return this.request(`/api/${userId}/chat/${messageId}/read`, {
+            method: 'PUT'
         });
-    }
-
-    async deleteMessage(userId, messageId) {
-        return this.request(`/api/${userId}/messages/${messageId}`, {
-            method: 'DELETE'
-        });
-    }
-
-    // Message Features
-    async getUnreadCount(userId) {
-        return this.request(`/api/${userId}/messages/unread-count`);
-    }
-
-    async markAsRead(userId, messageIds) {
-        return this.request(`/api/${userId}/messages/mark-read`, {
-            method: 'POST',
-            body: JSON.stringify({ message_ids: messageIds })
-        });
-    }
-
-    async addMessageReaction(userId, messageId, reaction) {
-        return this.request(`/api/${userId}/messages/${messageId}/reaction`, {
-            method: 'POST',
-            body: JSON.stringify({ reaction })
-        });
-    }
-
-    async removeMessageReaction(userId, messageId) {
-        return this.request(`/api/${userId}/messages/${messageId}/reaction`, {
-            method: 'DELETE'
-        });
-    }
-
-    // Analytics & Export
-    async getChatStats(userId) {
-        return this.request(`/api/${userId}/messages/stats`);
-    }
-
-    async getChatMedia(userId) {
-        return this.request(`/api/${userId}/messages/media`);
-    }
-
-    async exportMessages(userId) {
-        return this.request(`/api/${userId}/messages/export`);
-    }
-
-    async getConversationSummary(userId) {
-        return this.request(`/api/${userId}/messages/summary`);
-    }
-
-    async searchMessages(userId, query) {
-        return this.request(`/api/${userId}/messages/search?q=${encodeURIComponent(query)}`);
     }
 
     // ✅ TODO MANAGEMENT
@@ -368,175 +311,51 @@ class NekoUAPI {
 
     // 🍅 POMODORO MANAGEMENT
     // Session Management
-    async startPomodoroSession(userId, sessionData) {
-        return this.request(`/api/${userId}/pomodoro/start`, {
+    async createPomodoroSession(userId, sessionData) {
+        return this.request(`/api/${userId}/pomodoro`, {
             method: 'POST',
             body: JSON.stringify(sessionData)
         });
     }
 
-    async getCurrentPomodoroSession(userId) {
-        return this.request(`/api/${userId}/pomodoro/current`);
+    async getPomodoroSessions(userId, params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/api/${userId}/pomodoro${queryString ? '?' + queryString : ''}`);
     }
 
     async completePomodoroSession(userId, sessionId, completionData) {
         return this.request(`/api/${userId}/pomodoro/${sessionId}/complete`, {
-            method: 'POST',
-            body: JSON.stringify(completionData)
-        });
-    }
-
-    async cancelPomodoroSession(userId, sessionId) {
-        return this.request(`/api/${userId}/pomodoro/${sessionId}/cancel`, {
-            method: 'DELETE'
-        });
-    }
-
-    async updatePomodoroSession(userId, sessionId, sessionData) {
-        return this.request(`/api/${userId}/pomodoro/${sessionId}`, {
             method: 'PUT',
-            body: JSON.stringify(sessionData)
-        });
-    }
-
-    async addPomodoroInterruption(userId, sessionId, interruptionData) {
-        return this.request(`/api/${userId}/pomodoro/${sessionId}/interrupt`, {
-            method: 'POST',
-            body: JSON.stringify(interruptionData)
-        });
-    }
-
-    // Analytics & History
-    async getPomodoroHistory(userId) {
-        return this.request(`/api/${userId}/pomodoro/history`);
-    }
-
-    async getPomodoroStats(userId) {
-        return this.request(`/api/${userId}/pomodoro/stats`);
-    }
-
-    async getProductivityTrend(userId) {
-        return this.request(`/api/${userId}/pomodoro/trend`);
-    }
-
-    async getBestPomodoroSessions(userId) {
-        return this.request(`/api/${userId}/pomodoro/best`);
-    }
-
-    async getPomodoroSummary(userId) {
-        return this.request(`/api/${userId}/pomodoro/summary`);
-    }
-
-    async exportPomodoroSessions(userId) {
-        return this.request(`/api/${userId}/pomodoro/export`);
-    }
-
-    // Filtering & Search
-    async getPomodoroSessionsByType(userId, sessionType) {
-        return this.request(`/api/${userId}/pomodoro/type/${encodeURIComponent(sessionType)}`);
-    }
-
-    async searchPomodoroSessions(userId, query) {
-        return this.request(`/api/${userId}/pomodoro/search?q=${encodeURIComponent(query)}`);
-    }
-
-    // Presets
-    async createPomodoroPreset(userId, presetData) {
-        return this.request(`/api/${userId}/pomodoro/presets`, {
-            method: 'POST',
-            body: JSON.stringify(presetData)
+            body: JSON.stringify(completionData)
         });
     }
 
     // 🧮 MATH LEARNING
     // Problem Management
-    async generateMathProblem(userId, params) {
-        return this.request(`/api/${userId}/math/generate`, {
-            method: 'POST',
-            body: JSON.stringify(params)
-        });
+    async getMathProblems(userId, params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/api/${userId}/math${queryString ? '?' + queryString : ''}`);
     }
 
-    async submitMathAnswer(userId, answerData) {
-        return this.request(`/api/${userId}/math/submit`, {
+    async solveMathProblem(userId, problemId, answerData) {
+        return this.request(`/api/${userId}/math/${problemId}/solve`, {
             method: 'POST',
             body: JSON.stringify(answerData)
         });
     }
 
-    async generateReviewProblems(userId, params) {
-        return this.request(`/api/${userId}/math/review`, {
-            method: 'POST',
-            body: JSON.stringify(params)
-        });
-    }
-
-    // History & Analytics
-    async getMathHistory(userId) {
-        return this.request(`/api/${userId}/math/history`);
-    }
-
-    async getMathStats(userId) {
-        return this.request(`/api/${userId}/math/stats`);
-    }
-
-    async getIncorrectMathProblems(userId) {
-        return this.request(`/api/${userId}/math/incorrect`);
-    }
-
-    async getLearningTrend(userId) {
-        return this.request(`/api/${userId}/math/trend`);
-    }
-
-    async deleteMathHistory(userId) {
-        return this.request(`/api/${userId}/math/history`, {
-            method: 'DELETE'
-        });
-    }
-
     // 🐱 NEKO CHAT
     // Chat Features
-    async chatWithNeko(userId, message) {
-        return this.request(`/api/${userId}/neko/chat`, {
+    async chatWithNeko(userId, messageData) {
+        return this.request(`/api/${userId}/neko-chat`, {
             method: 'POST',
-            body: JSON.stringify({ message })
+            body: JSON.stringify(messageData)
         });
     }
 
-    async getNekoConversationHistory(userId) {
-        return this.request(`/api/${userId}/neko/conversations`);
-    }
-
-    async getNekoConversationStats(userId) {
-        return this.request(`/api/${userId}/neko/stats`);
-    }
-
-    async getDailyAdvice(userId) {
-        return this.request(`/api/${userId}/neko/advice`);
-    }
-
-    async getMorningGreeting(userId) {
-        return this.request(`/api/${userId}/neko/greeting`);
-    }
-
-    // Management
-    async deleteNekoConversation(userId, conversationId) {
-        return this.request(`/api/${userId}/neko/conversation/${conversationId}`, {
-            method: 'DELETE'
-        });
-    }
-
-    async clearAllNekoConversations(userId) {
-        return this.request(`/api/${userId}/neko/conversations`, {
-            method: 'DELETE'
-        });
-    }
-
-    async updateNekoMode(userId, mode) {
-        return this.request(`/api/${userId}/neko/mode`, {
-            method: 'PUT',
-            body: JSON.stringify({ mode })
-        });
+    async getNekoConversationHistory(userId, params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/api/${userId}/neko-chat${queryString ? '?' + queryString : ''}`);
     }
 
     // 📊 DASHBOARD

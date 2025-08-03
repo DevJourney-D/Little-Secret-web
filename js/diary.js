@@ -52,16 +52,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('📖 เริ่มต้นไดอารี่...');
         
         // ตรวจสอบการเข้าสู่ระบบ
-        const isLoggedIn = await userInfo.isUserLoggedIn();
+        const isLoggedIn = await nekouAuth.isAuthenticated();
         if (!isLoggedIn) {
             console.log('❌ ไม่ได้เข้าสู่ระบบ');
             utils.redirect('index.html');
             return;
         }
 
-        // ดึงข้อมูลผู้ใช้และคู่รักจาก cache
-        currentUser = await userInfo.getCurrentUser();
-        partnerProfile = await userInfo.getPartnerInfo();
+        // ดึงข้อมูลผู้ใช้
+        currentUser = nekouAuth.getCurrentUser();
         
         if (!currentUser) {
             utils.redirect('index.html');
@@ -76,42 +75,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.error('❌ ข้อผิดพลาดในการเริ่มต้นไดอารี่:', error);
     }
 });
-    console.log('🏠 เริ่มต้นหน้าไดอารี่...');
-    
-    try {
-        // ตรวจสอบการเข้าสู่ระบบ
-        const isLoggedIn = await userInfo.isUserLoggedIn();
-        if (!isLoggedIn) {
-            console.log('❌ ไม่ได้เข้าสู่ระบบ');
-            utils.redirect('index.html');
-            return;
-        }
-
-        // ดึงข้อมูลผู้ใช้และคู่รัก
-        currentUser = await userInfo.getCurrentUser();
-        partnerProfile = await userInfo.getPartnerInfo();
-        
-        if (!currentUser) {
-            console.log('❌ ไม่สามารถดึงข้อมูลผู้ใช้ได้');
-            utils.redirect('index.html');
-            return;
-        }
-
-        console.log('✅ โหลดข้อมูลผู้ใช้สำเร็จ:', currentUser.display_name || currentUser.username);
-        
-        // แสดงชื่อผู้ใช้
-        updateUserDisplay();
-        
-        await initializeDiary();
-        
-    } catch (error) {
-        console.error('❌ ข้อผิดพลาดในการเริ่มต้นหน้าไดอารี่:', error);
-        utils.showAlert('เกิดข้อผิดพลาดในการโหลดหน้าไดอารี่', 'error');
-    }
 
 function updateUserDisplay() {
     if (elements.userDisplayName && currentUser) {
-        const displayName = currentUser.display_name || currentUser.username || 'ผู้ใช้';
+        const displayName = currentUser.displayName || currentUser.username || 'ผู้ใช้';
         elements.userDisplayName.textContent = displayName;
         console.log('👤 แสดงชื่อผู้ใช้:', displayName);
     }
@@ -122,17 +89,47 @@ async function initializeDiary() {
     try {
         console.log('🔄 เริ่มต้นระบบไดอารี่...');
         
-        // ตั้งค่า event listeners
+        // แสดงชื่อผู้ใช้
+        updateUserDisplay();
+        
+        // Setup event listeners
         setupEventListeners();
         
-        // โหลดไดอารี่ทั้งหมด
+        // โหลดข้อมูลไดอารี่
         await loadDiaryEntries();
         
-        console.log('✅ ระบบไดอารี่พร้อมใช้งาน');
+        console.log('✅ ระบบไดอารี่เริ่มต้นสำเร็จ');
         
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการเริ่มต้นระบบไดอารี่:', error);
         utils.showAlert('ไม่สามารถโหลดระบบไดอารี่ได้', 'error');
+    }
+}
+
+// โหลดข้อมูลไดอารี่จาก API
+async function loadDiaryEntries() {
+    try {
+        console.log('📖 กำลังโหลดไดอารี่...');
+        
+        if (!currentUser || !currentUser.id) {
+            throw new Error('ไม่มีข้อมูลผู้ใช้');
+        }
+        
+        const response = await api.diary.getAll(currentUser.id);
+        
+        if (response.success && response.data) {
+            diaryEntries = response.data.diaries || [];
+            console.log(`✅ โหลดไดอารี่สำเร็จ จำนวน ${diaryEntries.length} รายการ`);
+            
+            // แสดงผลไดอารี่
+            await displayDiaryEntries();
+        } else {
+            throw new Error('ไม่สามารถโหลดข้อมูลไดอารี่ได้');
+        }
+        
+    } catch (error) {
+        console.error('❌ ข้อผิดพลาดในการโหลดไดอารี่:', error);
+        utils.showAlert('ไม่สามารถโหลดข้อมูลไดอารี่ได้', 'error');
     }
 }
 
@@ -256,10 +253,8 @@ async function handleDiarySubmit(e) {
             title: elements.diaryTitle.value.trim(),
             content: elements.diaryContent.value.trim(),
             mood: elements.diaryMood.value,
-            visibility: elements.diaryVisibility.value,
             category: elements.diaryCategory.value,
-            user_id: currentUser.id,
-            created_at: new Date().toISOString()
+            isSharedWithPartner: elements.diaryVisibility.value === 'shared'
         };
         
         // Validate form data
@@ -271,30 +266,25 @@ async function handleDiarySubmit(e) {
             throw new Error('เนื้อหาต้องไม่เกิน 1000 ตัวอักษร');
         }
         
-        // Save to database
-        if (!window.supabase) {
-            throw new Error('ไม่พบการเชื่อมต่อฐานข้อมูล กรุณาตั้งค่า Supabase');
-        }
-
-        const { data, error } = await window.supabase
-            .from('diary_entries')
-            .insert([formData])
-            .select();
+        // Save to API
+        const response = await api.diary.create(currentUser.id, formData);
+        
+        if (response.success) {
+            // Show success message
+            utils.showAlert('บันทึกไดอารี่เรียบร้อยแล้ว! 💕', 'success');
             
-        if (error) throw error;
-        
-        // Show success message
-        showAlert('บันทึกไดอารี่เรียบร้อยแล้ว! 💕', 'success');
-        
-        // Reset form
-        resetDiaryForm();
-        
-        // Reload entries
-        await loadDiaryEntries();
+            // Reset form
+            resetDiaryForm();
+            
+            // Reload entries
+            await loadDiaryEntries();
+        } else {
+            throw new Error(response.message || 'ไม่สามารถบันทึกไดอารี่ได้');
+        }
         
     } catch (error) {
         console.error('Error saving diary:', error);
-        showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+        utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึก', 'error');
     } finally {
         elements.saveDiaryBtn.disabled = false;
         elements.saveDiaryBtn.innerHTML = '<i class="bi bi-save"></i> บันทึกไดอารี่';

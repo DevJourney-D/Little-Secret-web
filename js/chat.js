@@ -10,20 +10,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('💬 เริ่มต้นแชท...');
         
         // ตรวจสอบการเข้าสู่ระบบ
-        const isLoggedIn = await userInfo.isUserLoggedIn();
-        if (!isLoggedIn) {
+        if (window.nekouAuth && nekouAuth.isAuthenticated()) {
+            currentUser = nekouAuth.getUser();
+        } else {
             console.log('❌ ไม่ได้เข้าสู่ระบบ');
-            utils.redirect('index.html');
+            window.location.href = '/index.html';
             return;
         }
 
-        // ดึงข้อมูลผู้ใช้และคู่รักจาก cache
-        currentUser = await userInfo.getCurrentUser();
-        partnerInfo = await userInfo.getPartnerInfo();
-        
-        if (!currentUser) {
-            utils.redirect('index.html');
-            return;
+        // ดึงข้อมูลคู่รัก
+        try {
+            const partnerResponse = await api.partner.getPartnerInfo();
+            if (partnerResponse.success && partnerResponse.data) {
+                partnerInfo = partnerResponse.data;
+            }
+        } catch (error) {
+            console.warn('ไม่พบข้อมูลคู่รัก:', error);
         }
         
         await initializeChat();
@@ -119,23 +121,12 @@ async function loadMessages() {
             return;
         }
         
-        const { data: messagesData, error } = await supabase
-            .from('chat_messages')
-            .select(`
-                *,
-                sender:users!chat_messages_sender_id_fkey(first_name, last_name, display_name, avatar_url),
-                receiver:users!chat_messages_receiver_id_fkey(first_name, last_name, display_name, avatar_url)
-            `)
-            .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.partner_id}),and(sender_id.eq.${currentUser.partner_id},receiver_id.eq.${currentUser.id})`)
-            .order('created_at', { ascending: true });
-        
-        if (error) {
-            throw error;
+        const response = await api.chat.getAll();
+        if (response.success) {
+            messages = response.data || [];
+        } else {
+            throw new Error(response.message || 'Failed to load messages');
         }
-        
-        // เพิ่มการตรวจสอบความปลอดภัยใน frontend
-        const secureMessages = SecurityUtils.filterChatMessages(messagesData || [], currentUser, partnerInfo);
-        messages = secureMessages;
         renderMessages();
         scrollToBottom();
         
@@ -210,28 +201,19 @@ async function handleSendMessage(e) {
 
 async function sendMessage(message) {
     try {
-        const { data, error } = await supabase
-            .from('chat_messages')
-            .insert([{
-                sender_id: currentUser.id,
-                receiver_id: currentUser.partner_id,
-                message: message,
-                message_type: 'text',
-                read: false,
-                created_at: new Date().toISOString()
-            }])
-            .select(`
-                *,
-                sender:users!chat_messages_sender_id_fkey(first_name, last_name, display_name, avatar_url),
-                receiver:users!chat_messages_receiver_id_fkey(first_name, last_name, display_name, avatar_url)
-            `)
-            .single();
+        const messageData = {
+            message: message,
+            messageType: 'text'
+        };
         
-        if (error) {
-            throw error;
+        const response = await api.chat.create(messageData);
+        
+        if (response.success) {
+            console.log('✅ ส่งข้อความสำเร็จ');
+            // Message will be added via real-time subscription
+        } else {
+            throw new Error(response.message || 'Failed to send message');
         }
-        
-        // Message will be added via real-time subscription
         
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการส่งข้อความ:', error);
@@ -411,9 +393,15 @@ async function logout() {
     }
     
     try {
-        await supabase.auth.signOut();
-        utils.clearUserSession();
-        utils.redirect('index.html');
+        // Use nekouAuth logout
+        if (window.nekouAuth) {
+            await nekouAuth.logout();
+        } else {
+            // Fallback: clear local storage and redirect
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = '/index.html';
+        }
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการออกจากระบบ:', error);
     }

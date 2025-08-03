@@ -4,10 +4,11 @@ let conversations = [];
 let currentMood = 'happy';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    currentUser = utils.getCurrentUser();
-    
-    if (!currentUser) {
-        utils.redirect('index.html');
+    // Check if user is authenticated
+    if (window.nekouAuth && nekouAuth.isAuthenticated()) {
+        currentUser = nekouAuth.getUser();
+    } else {
+        window.location.href = '/index.html';
         return;
     }
     
@@ -306,18 +307,8 @@ function handleKeyPress(e) {
 
 async function loadConversations() {
     try {
-        const { data: conversationsData, error } = await supabase
-            .from('neko_conversations')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: true })
-            .limit(20); // Load last 20 conversations
-        
-        if (error) {
-            throw error;
-        }
-        
-        conversations = conversationsData || [];
+        const response = await api.chat.getAll();
+        conversations = response.data || [];
         
         // Render previous conversations
         const chatMessages = document.getElementById('chatMessages');
@@ -339,18 +330,16 @@ async function loadConversations() {
 
 async function saveConversation(message, response) {
     try {
-        const { data, error } = await supabase
-            .from('neko_conversations')
-            .insert([{
-                user_id: currentUser.id,
-                message: message,
-                response: response,
-                mood: currentMood,
-                created_at: new Date().toISOString()
-            }]);
+        const chatData = {
+            message: message,
+            response: response,
+            mood: currentMood
+        };
         
-        if (error) {
-            throw error;
+        const response_api = await api.chat.create(chatData);
+        
+        if (!response_api.success) {
+            throw new Error(response_api.message || 'Failed to save conversation');
         }
         
     } catch (error) {
@@ -377,19 +366,15 @@ async function logout() {
     }
     
     try {
-        // Clean up PresenceManager before logout
-        if (window.presenceManager) {
-            window.presenceManager.cleanup();
+        // Use nekouAuth logout
+        if (window.nekouAuth) {
+            await nekouAuth.logout();
+        } else {
+            // Fallback: clear local storage and redirect
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = '/index.html';
         }
-        
-        // Sign out from Supabase
-        await supabase.auth.signOut();
-        
-        // Clear local storage
-        utils.clearUserSession();
-        
-        // Redirect to login
-        utils.redirect('index.html');
         
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการออกจากระบบ:', error);

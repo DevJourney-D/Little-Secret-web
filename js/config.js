@@ -113,7 +113,7 @@ const api = {
     async healthCheck() {
         try {
             console.log('🏥 Checking API health...');
-            const response = await this.request('/health', {
+            const response = await this.request('/api/health', {
                 method: 'GET'
             });
             console.log('✅ API Health Check passed:', response);
@@ -137,17 +137,14 @@ const api = {
         },
 
         async register(userData) {
-            // Map frontend data to backend expected format
+            // Map frontend data to backend expected format according to API docs
             const backendData = {
-                email: userData.email,
                 username: userData.username,
-                first_name: userData.firstName,
-                last_name: userData.lastName,
-                nickname: userData.nickname,
-                gender: userData.gender,
-                birth_date: userData.birthDate,
+                email: userData.email,
                 password: userData.password,
-                partner_code: userData.partnerCode || null
+                displayName: userData.displayName,
+                firstName: userData.firstName || null,
+                lastName: userData.lastName || null
             };
             
             console.log('📤 Sending registration data:', { 
@@ -200,7 +197,7 @@ const api = {
         async connectPartner(userId, partnerCode) {
             return api.request(`/api/users/${userId}/connect-partner`, {
                 method: 'POST',
-                body: JSON.stringify({ partner_code: partnerCode })
+                body: JSON.stringify({ partnerCode: partnerCode })
             });
         },
 
@@ -251,28 +248,21 @@ const api = {
 
     // Chat Management
     chat: {
-        async getMessages(userId, partnerId) {
-            return api.request(`/api/${userId}/messages/${partnerId}`);
+        async getMessages(userId, partnerId, params = {}) {
+            const queryString = new URLSearchParams(params).toString();
+            return api.request(`/api/${userId}/messages/${partnerId}${queryString ? '?' + queryString : ''}`);
         },
 
         async sendMessage(userId, messageData) {
-            return api.request(`/api/${userId}/messages`, {
+            return api.request(`/api/${userId}/chat`, {
                 method: 'POST',
                 body: JSON.stringify(messageData)
             });
         },
 
-        async markAsRead(userId, messageIds) {
-            return api.request(`/api/${userId}/messages/mark-read`, {
-                method: 'POST',
-                body: JSON.stringify({ message_ids: messageIds })
-            });
-        },
-
-        async addReaction(userId, messageId, reaction) {
-            return api.request(`/api/${userId}/messages/${messageId}/reaction`, {
-                method: 'POST',
-                body: JSON.stringify({ reaction })
+        async markAsRead(userId, messageId) {
+            return api.request(`/api/${userId}/chat/${messageId}/read`, {
+                method: 'PUT'
             });
         }
     },
@@ -303,73 +293,53 @@ const api = {
 
     // Pomodoro Management
     pomodoro: {
-        async start(userId, sessionData) {
-            return api.request(`/api/${userId}/pomodoro/start`, {
+        async create(userId, sessionData) {
+            return api.request(`/api/${userId}/pomodoro`, {
                 method: 'POST',
                 body: JSON.stringify(sessionData)
             });
         },
 
-        async getCurrent(userId) {
-            return api.request(`/api/${userId}/pomodoro/current`);
+        async getAll(userId, params = {}) {
+            const queryString = new URLSearchParams(params).toString();
+            return api.request(`/api/${userId}/pomodoro${queryString ? '?' + queryString : ''}`);
         },
 
         async complete(userId, sessionId, completionData) {
             return api.request(`/api/${userId}/pomodoro/${sessionId}/complete`, {
-                method: 'POST',
+                method: 'PUT',
                 body: JSON.stringify(completionData)
             });
-        },
-
-        async getStats(userId) {
-            return api.request(`/api/${userId}/pomodoro/stats`);
         }
     },
 
     // Math Learning
     math: {
-        async generate(userId, params) {
-            return api.request(`/api/${userId}/math/generate`, {
-                method: 'POST',
-                body: JSON.stringify(params)
-            });
+        async getProblems(userId, params = {}) {
+            const queryString = new URLSearchParams(params).toString();
+            return api.request(`/api/${userId}/math${queryString ? '?' + queryString : ''}`);
         },
 
-        async submit(userId, answerData) {
-            return api.request(`/api/${userId}/math/submit`, {
+        async solve(userId, problemId, answerData) {
+            return api.request(`/api/${userId}/math/${problemId}/solve`, {
                 method: 'POST',
                 body: JSON.stringify(answerData)
             });
-        },
-
-        async getHistory(userId) {
-            return api.request(`/api/${userId}/math/history`);
-        },
-
-        async getStats(userId) {
-            return api.request(`/api/${userId}/math/stats`);
         }
     },
 
     // Neko Chat
     neko: {
-        async chat(userId, message) {
-            return api.request(`/api/${userId}/neko/chat`, {
+        async chat(userId, messageData) {
+            return api.request(`/api/${userId}/neko-chat`, {
                 method: 'POST',
-                body: JSON.stringify({ message })
+                body: JSON.stringify(messageData)
             });
         },
 
-        async getConversations(userId) {
-            return api.request(`/api/${userId}/neko/conversations`);
-        },
-
-        async getDailyAdvice(userId) {
-            return api.request(`/api/${userId}/neko/advice`);
-        },
-
-        async getMorningGreeting(userId) {
-            return api.request(`/api/${userId}/neko/greeting`);
+        async getConversations(userId, params = {}) {
+            const queryString = new URLSearchParams(params).toString();
+            return api.request(`/api/${userId}/neko-chat${queryString ? '?' + queryString : ''}`);
         }
     },
 

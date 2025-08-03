@@ -77,47 +77,27 @@ window.debugSession = debugSession;
 
 async function initializeDashboard() {
     try {
-        console.log('🚀 เริ่มต้นแดชบอร์ดด้วย UserInfoManager...');
+        console.log('🚀 เริ่มต้นแดชบอร์ดด้วย API...');
         
         // แสดง loading indicator
         showLoadingState(true);
         
-        // ตรวจสอบ session อีกรอบ
-        const userSession = utils.getCurrentUser();
-        if (!userSession) {
-            console.log('❌ ไม่มี session ใน localStorage');
-            throw new Error('ไม่พบข้อมูล session');
+        // ตรวจสอบการเข้าสู่ระบบและดึงข้อมูลผู้ใช้
+        const isLoggedIn = await nekouAuth.isAuthenticated();
+        if (!isLoggedIn) {
+            throw new Error('ไม่ได้เข้าสู่ระบบ');
         }
         
-        console.log('📋 พบ session:', {
-            id: userSession.id,
-            username: userSession.username,
-            expiresAt: userSession.expiresAt
-        });
-        
-        // ดึงข้อมูลผู้ใช้และคู่รักจาก cache
-        const [user, partner] = await Promise.all([
-            userInfo.getCurrentUser(),
-            userInfo.getPartnerInfo()
-        ]);
-        
-        currentUser = user;
-        partnerInfo = partner;
+        currentUser = nekouAuth.getCurrentUser();
         
         if (currentUser) {
-            console.log('✅ ผู้ใช้ล็อกอิน:', currentUser.display_name || currentUser.username);
+            console.log('✅ ผู้ใช้ล็อกอิน:', currentUser.displayName || currentUser.username);
             
             // อัปเดตการแสดงผลผู้ใช้
             updateUserDisplay();
             
-            // อัปเดตข้อมูลคู่รัก
-            await displayPartnerInfo();
-            
-            // โหลดสถิติต่างๆ
-            await loadDashboardStats();
-            
-            // โหลดกิจกรรมล่าสุด
-            await loadRecentActivity();
+            // โหลดข้อมูล Dashboard จาก API
+            await loadDashboardData();
             
             // ซ่อน loading indicator
             showLoadingState(false);
@@ -137,7 +117,7 @@ async function initializeDashboard() {
         utils.showAlert('ไม่สามารถโหลดข้อมูลแดชบอร์ดได้: ' + error.message, 'error');
         
         // ถ้าเป็นปัญหาเรื่อง session ให้ redirect ไปหน้าล็อกอิน
-        if (error.message.includes('session') || error.message.includes('ผู้ใช้')) {
+        if (error.message.includes('session') || error.message.includes('ผู้ใช้') || error.message.includes('ไม่ได้เข้าสู่ระบบ')) {
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 2000);
@@ -152,7 +132,7 @@ function updateUserDisplay() {
         // อัปเดตชื่อผู้ใช้ในหลายจุด
         const userNameElement = document.getElementById('userName');
         if (userNameElement) {
-            const displayName = currentUser.display_name || currentUser.username || 'ผู้ใช้';
+            const displayName = currentUser.displayName || currentUser.username || 'ผู้ใช้';
             userNameElement.textContent = displayName;
         }
         
@@ -178,13 +158,50 @@ function showLoadingState(show) {
     }
 }
 
+// โหลดข้อมูล Dashboard จาก API
+async function loadDashboardData() {
+    try {
+        if (!currentUser || !currentUser.id) {
+            throw new Error('ไม่มีข้อมูลผู้ใช้');
+        }
+
+        console.log('📊 กำลังโหลดข้อมูล Dashboard จาก API...');
+        
+        const dashboardResponse = await api.getDashboard(currentUser.id);
+        
+        if (dashboardResponse.success && dashboardResponse.data) {
+            const dashboardData = dashboardResponse.data;
+            
+            // อัปเดตข้อมูลคู่รัก
+            if (dashboardData.partner) {
+                partnerInfo = dashboardData.partner;
+                await displayPartnerInfo();
+            } else {
+                await displayPairingCard();
+            }
+            
+            // อัปเดตสถิติ
+            updateDashboardStats(dashboardData.stats || {});
+            updateTodayStats(dashboardData.todayStats || {});
+            
+            // อัปเดตกิจกรรมล่าสุด
+            updateRecentActivity(dashboardData.recentActivity || []);
+            
+            console.log('✅ โหลดข้อมูล Dashboard เสร็จแล้ว');
+        }
+    } catch (error) {
+        console.error('❌ ข้อผิดพลาดในการโหลดข้อมูล Dashboard:', error);
+        utils.showAlert('ไม่สามารถโหลดข้อมูล Dashboard ได้', 'warning');
+    }
+}
+
 async function displayPartnerInfo() {
     try {
         const partnerInfoCard = document.getElementById('partnerInfoCard');
         const pairingCard = document.getElementById('pairingCard');
         
         if (partnerInfo) {
-            console.log('💕 แสดงข้อมูลคู่รัก:', partnerInfo.display_name);
+            console.log('💕 แสดงข้อมูลคู่รัก:', partnerInfo.displayName);
             
             // Show partner info, hide pairing card
             if (partnerInfoCard) partnerInfoCard.style.display = 'block';
@@ -192,98 +209,147 @@ async function displayPartnerInfo() {
             
             // Update partner name and additional info
             const partnerNameElement = document.getElementById('partnerName');
-            const partnerNicknameElement = document.getElementById('partnerNickname');
-            const partnerSinceElement = document.getElementById('partnerSince');
+            const partnerStatusElement = document.getElementById('partnerStatus');
             
             if (partnerNameElement) {
-                const partnerDisplayName = partnerInfo.display_name || 
-                    `${partnerInfo.first_name || ''} ${partnerInfo.last_name || ''}`.trim() || 
-                    partnerInfo.username || 'คู่รัก';
+                const partnerDisplayName = partnerInfo.displayName || partnerInfo.username || 'คู่รัก';
                 partnerNameElement.textContent = partnerDisplayName;
             }
             
-            // แสดงชื่อเล่น
-            if (partnerNicknameElement) {
-                const nickname = partnerInfo.nickname || partnerInfo.display_name || 'ไม่มีชื่อเล่น';
-                partnerNicknameElement.innerHTML = `
-                    <i class="bi bi-heart text-danger me-1"></i>
-                    <span class="text-muted">ชื่อเล่น: </span>
-                    <span>${nickname}</span>
-                `;
+            if (partnerStatusElement) {
+                const isOnline = partnerInfo.isOnline;
+                partnerStatusElement.innerHTML = isOnline ? 
+                    '<i class="bi bi-circle-fill text-success me-1"></i>ออนไลน์' : 
+                    '<i class="bi bi-circle text-secondary me-1"></i>ออฟไลน์';
             }
-            
-            // แสดงวันที่เชื่อมต่อ
-            if (partnerSinceElement && partnerInfo.created_at) {
-                const joinDate = new Date(partnerInfo.created_at);
-                const timeAgo = getTimeAgo(joinDate);
-                partnerSinceElement.textContent = timeAgo;
-            }
-            
-            // อัปเดต partner avatar ด้วยรูปจริงหรือ initial
-            const partnerAvatar = document.querySelector('.partner-avatar');
-            if (partnerAvatar) {
-                if (partnerInfo.avatar_url) {
-                    partnerAvatar.innerHTML = `<img src="${partnerInfo.avatar_url}" alt="Partner Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
-                } else {
-                    const initial = (partnerInfo.first_name || partnerInfo.username || 'P').charAt(0).toUpperCase();
-                    partnerAvatar.innerHTML = `<span style="font-size: 2.5rem; font-weight: bold;">${initial}</span>`;
-                }
-            }
-            
-            // ตรวจสอบสถานะออนไลน์
-            updatePartnerStatus();
             
         } else {
-            console.log('💔 ยังไม่มีคู่รัก');
-            
-            // Hide partner info, show pairing card
-            if (partnerInfoCard) partnerInfoCard.style.display = 'none';
-            if (pairingCard) pairingCard.style.display = 'block';
-            
-            // แสดงรหัสคู่รักของผู้ใช้
-            const myPartnerCodeElement = document.getElementById('myPartnerCode');
-            if (myPartnerCodeElement && currentUser && currentUser.partner_code) {
-                myPartnerCodeElement.textContent = currentUser.partner_code;
-            }
+            await displayPairingCard();
         }
-        
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการแสดงข้อมูลคู่รัก:', error);
     }
+}
+
+async function displayPairingCard() {
+    try {
+        const partnerInfoCard = document.getElementById('partnerInfoCard');
+        const pairingCard = document.getElementById('pairingCard');
+        
+        // Hide partner info, show pairing card
+        if (partnerInfoCard) partnerInfoCard.style.display = 'none';
+        if (pairingCard) pairingCard.style.display = 'block';
+        
+        console.log('💝 แสดงการ์ดเชื่อมต่อคู่รัก');
+    } catch (error) {
+        console.error('❌ ข้อผิดพลาดในการแสดงการ์ดเชื่อมต่อ:', error);
+    }
+}
+
+// อัปเดตสถิติ Dashboard
+function updateDashboardStats(stats) {
+    try {
+        // อัปเดตสถิติต่างๆ
+        const diaryCountElement = document.getElementById('diaryCount');
+        const todoCountElement = document.getElementById('todoCount');
+        const pomodoroCountElement = document.getElementById('pomodoroCount');
+        const mathCountElement = document.getElementById('mathCount');
+        const chatCountElement = document.getElementById('chatCount');
+        
+        if (diaryCountElement) diaryCountElement.textContent = stats.diaryEntries || '0';
+        if (todoCountElement) todoCountElement.textContent = stats.todosCompleted || '0';
+        if (pomodoroCountElement) pomodoroCountElement.textContent = stats.pomodoroSessions || '0';
+        if (mathCountElement) mathCountElement.textContent = stats.mathProblems || '0';
+        if (chatCountElement) chatCountElement.textContent = stats.chatMessages || '0';
+        
+        console.log('📊 อัปเดตสถิติ Dashboard เรียบร้อย');
+    } catch (error) {
+        console.error('❌ ข้อผิดพลาดในการอัปเดตสถิติ:', error);
+    }
+}
+
+// อัปเดตสถิติวันนี้
+function updateTodayStats(todayStats) {
+    try {
+        const todayDiaryElement = document.getElementById('todayDiary');
+        const todayTodoElement = document.getElementById('todayTodo');
+        const todayPomodoroElement = document.getElementById('todayPomodoro');
+        const todayMathElement = document.getElementById('todayMath');
+        
+        if (todayDiaryElement) todayDiaryElement.textContent = todayStats.diariesCreated || '0';
+        if (todayTodoElement) todayTodoElement.textContent = todayStats.todosCompleted || '0';
+        if (todayPomodoroElement) todayPomodoroElement.textContent = todayStats.pomodoroMinutes ? todayStats.pomodoroMinutes + ' นาที' : '0 นาที';
+        if (todayMathElement) todayMathElement.textContent = todayStats.mathProblems || '0';
+        
+        console.log('📅 อัปเดตสถิติวันนี้เรียบร้อย');
+    } catch (error) {
+        console.error('❌ ข้อผิดพลาดในการอัปเดตสถิติวันนี้:', error);
+    }
+}
+
+// อัปเดตกิจกรรมล่าสุด
+function updateRecentActivity(activities) {
+    try {
+        const activityList = document.getElementById('activityList');
+        if (!activityList) return;
+        
+        if (activities.length === 0) {
+            activityList.innerHTML = '<div class="text-center text-muted p-3">ยังไม่มีกิจกรรม</div>';
+            return;
+        }
+        
+        activityList.innerHTML = activities.map(activity => {
+            const timeAgo = getTimeAgo(new Date(activity.timestamp));
+            const icon = getActivityIcon(activity.type);
+            
+            return `
+                <div class="activity-item d-flex align-items-center p-2 border-bottom">
+                    <div class="activity-icon me-3">
+                        <i class="bi ${icon} text-primary"></i>
+                    </div>
+                    <div class="activity-content flex-grow-1">
+                        <div class="activity-description">${activity.description}</div>
+                        <small class="text-muted">${timeAgo}</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        console.log('🔔 อัปเดตกิจกรรมล่าสุดเรียบร้อย');
+    } catch (error) {
+        console.error('❌ ข้อผิดพลาดในการอัปเดตกิจกรรม:', error);
+    }
+}
+
+// ฟังก์ชันช่วยสำหรับไอคอนกิจกรรม
+function getActivityIcon(type) {
+    const icons = {
+        diary: 'bi-journal-text',
+        todo: 'bi-check-circle',
+        pomodoro: 'bi-clock',
+        math: 'bi-calculator',
+        chat: 'bi-chat-dots'
+    };
+    return icons[type] || 'bi-activity';
 }
 
 async function updatePartnerStatus() {
     try {
         if (!partnerInfo) return;
         
-        // ดึงสถานะออนไลน์ล่าสุด
-        const { data: partnerData, error } = await supabase
-            .from('users')
-            .select('is_online, last_seen')
-            .eq('id', partnerInfo.id)
-            .single();
-            
-        if (error) {
-            console.error('Error fetching partner status:', error);
-            return;
-        }
-        
+        // สำหรับตอนนี้ใช้ข้อมูลจาก Dashboard API
         const statusElement = document.getElementById('partnerStatus');
         
-        if (statusElement && partnerData) {
-            if (partnerData.is_online) {
-                statusElement.innerHTML = '<i class="bi bi-circle-fill me-1" style="font-size: 0.6rem;"></i>ออนไลน์';
-                statusElement.className = 'partner-status online';
-            } else {
-                statusElement.innerHTML = '<i class="bi bi-circle-fill me-1" style="font-size: 0.6rem;"></i>ออฟไลน์';
-                statusElement.className = 'partner-status offline';
+        if (statusElement && partnerInfo) {
+            const isOnline = partnerInfo.isOnline;
+            statusElement.innerHTML = isOnline ? 
+                '<i class="bi bi-circle-fill text-success me-1"></i>ออนไลน์' : 
+                '<i class="bi bi-circle text-secondary me-1"></i>ออฟไลน์';
                 
-                // แสดงเวลาที่เห็นล่าสุด
-                if (partnerData.last_seen) {
-                    const lastSeenDate = new Date(partnerData.last_seen);
-                    const timeAgo = getTimeAgo(lastSeenDate);
-                    statusElement.title = `เห็นล่าสุด: ${timeAgo}`;
-                }
+            if (!isOnline && partnerInfo.lastSeen) {
+                const lastSeenDate = new Date(partnerInfo.lastSeen);
+                const timeAgo = getTimeAgo(lastSeenDate);
+                statusElement.title = `เห็นล่าสุด: ${timeAgo}`;
             }
         }
         
@@ -298,26 +364,8 @@ async function loadDashboardStats() {
         
         if (!currentUser) return;
         
-        // ดึงข้อมูลสถิติจากฐานข้อมูล
-        const [diaryCount, todoCount, chatCount, mathStats, pomodoroStats, additionalStats] = await Promise.all([
-            getDiaryCount(),
-            getTodoCount(),
-            getChatCount(),
-            getMathStats(),
-            getPomodoroStats(),
-            getAdditionalStats()
-        ]);
-        
-        // แสดงสถิติ
-        displayStats({
-            diaryCount,
-            todoCount,
-            chatCount,
-            mathStats,
-            pomodoroStats,
-            additionalStats,
-            daysSinceJoined: calculateDaysSinceJoined()
-        });
+        // สำหรับตอนนี้ใช้ข้อมูลจาก Dashboard API แทน
+        console.log('✅ ใช้ข้อมูลจาก Dashboard API');
         
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการโหลดสถิติ:', error);
@@ -325,153 +373,36 @@ async function loadDashboardStats() {
 }
 
 async function getDiaryCount() {
-    try {
-        const { count, error } = await supabase
-            .from('diary_entries')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', currentUser.id);
-            
-        if (error) throw error;
-        return count || 0;
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการนับไดอารี่:', error);
-        return 0;
-    }
+    // ฟังก์ชันนี้จะถูกแทนที่ด้วยข้อมูลจาก Dashboard API
+    return 0;
 }
 
 async function getTodoCount() {
-    try {
-        const { count, error } = await supabase
-            .from('todos')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', currentUser.id)
-            .eq('completed', false);
-            
-        if (error) throw error;
-        return count || 0;
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการนับ Todo:', error);
-        return 0;
-    }
+    // ฟังก์ชันนี้จะถูกแทนที่ด้วยข้อมูลจาก Dashboard API
+    return 0;
 }
 
 async function getChatCount() {
-    try {
-        const { count, error } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('sender_id', currentUser.id);
-            
-        if (error) throw error;
-        return count || 0;
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการนับข้อความแชต:', error);
-        return 0;
-    }
+    // ฟังก์ชันนี้จะถูกแทนที่ด้วยข้อมูลจาก Dashboard API
+    return 0;
 }
 
 async function getMathStats() {
-    try {
-        // ดึงข้อมูลคณิตศาสตร์ทั้งหมด
-        const { data: mathData, error } = await supabase
-            .from('math_sessions')
-            .select('score, total_problems')
-            .eq('user_id', currentUser.id);
-            
-        if (error) throw error;
-        
-        if (!mathData || mathData.length === 0) {
-            return { accuracy: 0, totalProblems: 0 };
-        }
-        
-        // คำนวณความแม่นยำรวม
-        let totalCorrect = 0;
-        let totalProblems = 0;
-        
-        mathData.forEach(session => {
-            totalCorrect += session.score || 0;
-            totalProblems += session.total_problems || 0;
-        });
-        
-        const accuracy = totalProblems > 0 ? Math.round((totalCorrect / totalProblems) * 100) : 0;
-        
-        return {
-            accuracy,
-            totalProblems
-        };
-        
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการดึงสถิติคณิตศาสตร์:', error);
-        return { accuracy: 0, totalProblems: 0 };
-    }
+    // ฟังก์ชันนี้จะถูกแทนที่ด้วยข้อมูลจาก Dashboard API
+    return { accuracy: 0, totalProblems: 0 };
 }
 
 async function getPomodoroStats() {
-    try {
-        // ดึงข้อมูล Pomodoro sessions
-        const { data: pomodoroData, error } = await supabase
-            .from('pomodoro_sessions')
-            .select('duration_minutes, completed')
-            .eq('user_id', currentUser.id)
-            .eq('completed', true);
-            
-        if (error) throw error;
-        
-        if (!pomodoroData || pomodoroData.length === 0) {
-            return { totalSessions: 0, totalHours: 0 };
-        }
-        
-        const totalSessions = pomodoroData.length;
-        const totalMinutes = pomodoroData.reduce((sum, session) => sum + (session.duration_minutes || 25), 0);
-        const totalHours = Math.round((totalMinutes / 60) * 10) / 10; // ปัดเศษ 1 ตำแหน่ง
-        
-        return {
-            totalSessions,
-            totalHours
-        };
-        
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการดึงสถิติ Pomodoro:', error);
-        return { totalSessions: 0, totalHours: 0 };
-    }
+    // ฟังก์ชันนี้จะถูกแทนที่ด้วยข้อมูลจาก Dashboard API
+    return { totalSessions: 0, totalHours: 0 };
 }
 
 async function getAdditionalStats() {
-    try {
-        // ดึงจำนวน Todo ที่เสร็จแล้ว
-        const { count: completedTodos, error: todoError } = await supabase
-            .from('todos')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', currentUser.id)
-            .eq('completed', true);
-            
-        if (todoError) throw todoError;
-        
-        // ดึงจำนวนข้อความจากคู่รัก
-        let partnerChatCount = 0;
-        if (partnerInfo) {
-            const { count, error: chatError } = await supabase
-                .from('chat_messages')
-                .select('*', { count: 'exact', head: true })
-                .eq('sender_id', partnerInfo.id);
-                
-            if (!chatError) {
-                partnerChatCount = count || 0;
-            }
-        }
-        
-        return {
-            completedTodos: completedTodos || 0,
-            partnerChatCount
-        };
-        
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการดึงสถิติเพิ่มเติม:', error);
-        return {
-            completedTodos: 0,
-            partnerChatCount: 0
-        };
-    }
+    // ฟังก์ชันนี้จะถูกแทนที่ด้วยข้อมูลจาก Dashboard API
+    return {
+        completedTodos: 0,
+        partnerChatCount: 0
+    };
 }
 
 function calculateDaysSinceJoined() {
@@ -564,38 +495,8 @@ async function loadRecentActivity() {
     try {
         console.log('📋 โหลดกิจกรรมล่าสุด...');
         
-        if (!currentUser) return;
-        
-        // ดึงไดอารี่ล่าสุด
-        const { data: recentDiary, error: diaryError } = await supabase
-            .from('diary_entries')
-            .select('title, created_at')
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
-            .limit(3);
-            
-        // ดึง Todo ล่าสุด
-        const { data: recentTodos, error: todoError } = await supabase
-            .from('todos')
-            .select('title, completed, created_at')
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
-            .limit(3);
-            
-        // ดึงข้อความแชตล่าสุด
-        const { data: recentMessages, error: chatError } = await supabase
-            .from('chat_messages')
-            .select('message, sender_id, created_at')
-            .or(`sender_id.eq.${currentUser.id}${partnerInfo ? `,sender_id.eq.${partnerInfo.id}` : ''}`)
-            .order('created_at', { ascending: false })
-            .limit(5);
-        
-        // แสดงกิจกรรมล่าสุด
-        displayRecentActivity({
-            diary: recentDiary || [],
-            todos: recentTodos || [],
-            messages: recentMessages || []
-        });
+        // สำหรับตอนนี้ข้อมูลจะมาจาก Dashboard API แล้ว
+        console.log('✅ ใช้ข้อมูลจาก Dashboard API');
         
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการโหลดกิจกรรมล่าสุด:', error);
@@ -841,55 +742,6 @@ function updateDateTime() {
     const dateTimeElement = document.getElementById('currentDateTime');
     if (dateTimeElement) {
         dateTimeElement.textContent = now.toLocaleDateString('th-TH', options);
-    }
-}
-
-async function getMathStats() {
-    try {
-        const { data: mathData, error } = await supabase
-            .from('math_problems')
-            .select('is_correct, time_spent, solved_at')
-            .eq('user_id', currentUser.id);
-            
-        if (error) throw error;
-        
-        const totalProblems = mathData?.length || 0;
-        const correctAnswers = mathData?.filter(p => p.is_correct === true).length || 0;
-        const accuracy = totalProblems > 0 ? (correctAnswers / totalProblems * 100).toFixed(1) : 0;
-        
-        return {
-            totalProblems,
-            correctAnswers,
-            accuracy: parseFloat(accuracy)
-        };
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการดึงสถิติคณิตศาสตร์:', error);
-        return { totalProblems: 0, correctAnswers: 0, accuracy: 0 };
-    }
-}
-
-async function getPomodoroStats() {
-    try {
-        const { data: pomodoroData, error } = await supabase
-            .from('pomodoro_sessions')
-            .select('duration_minutes, completed, task_description')
-            .eq('user_id', currentUser.id)
-            .eq('completed', true);
-            
-        if (error) throw error;
-        
-        const totalSessions = pomodoroData?.length || 0;
-        const totalMinutes = pomodoroData?.reduce((total, session) => total + (session.duration_minutes || 25), 0) || 0;
-        const totalHours = (totalMinutes / 60).toFixed(1);
-        
-        return {
-            totalSessions,
-            totalMinutes,
-            totalHours: parseFloat(totalHours)
-        };
-    } catch (error) {
-        console.error('ข้อผิดพลาดในการดึงสถิติ Pomodoro:', error);
-        return { totalSessions: 0, totalMinutes: 0, totalHours: 0 };
     }
 }
 

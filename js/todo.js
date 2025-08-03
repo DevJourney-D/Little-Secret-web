@@ -8,16 +8,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('📝 เริ่มต้น Todo...');
         
         // ตรวจสอบการเข้าสู่ระบบ
-        const isLoggedIn = await userInfo.isUserLoggedIn();
+        const isLoggedIn = await nekouAuth.isAuthenticated();
         if (!isLoggedIn) {
             console.log('❌ ไม่ได้เข้าสู่ระบบ');
             utils.redirect('index.html');
             return;
         }
 
-        // ดึงข้อมูลผู้ใช้และคู่รักจาก cache
-        currentUser = await userInfo.getCurrentUser();
-        partnerInfo = await userInfo.getPartnerInfo();
+        // ดึงข้อมูลผู้ใช้
+        currentUser = nekouAuth.getCurrentUser();
         
         if (!currentUser) {
             utils.redirect('index.html');
@@ -74,40 +73,32 @@ async function handleSaveTodo(e) {
         saveBtn.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> กำลังบันทึก...';
         
         const todoData = {
-            user_id: currentUser.id,
             title: title,
             description: description,
             priority: priority,
             category: category,
-            status: 'pending',
-            completed: false,
-            shared_with_partner: shared,
-            created_at: new Date().toISOString()
+            sharedWithPartner: shared
         };
         
         if (dueDate) {
-            todoData.due_date = new Date(dueDate).toISOString();
+            todoData.dueDate = dueDate;
         }
         
-        // Save to database
-        const { data, error } = await supabase
-            .from('todos')
-            .insert([todoData])
-            .select()
-            .single();
+        // Save to API
+        const response = await api.todo.create(currentUser.id, todoData);
         
-        if (error) {
-            throw error;
+        if (response.success) {
+            utils.showAlert('เพิ่มงานสำเร็จ! ✅', 'success');
+            
+            // Reset form
+            document.getElementById('todoForm').reset();
+            
+            // Reload todos
+            await loadAllTodos();
+            updateStatistics();
+        } else {
+            throw new Error(response.message || 'ไม่สามารถเพิ่มงานได้');
         }
-        
-        utils.showToast('เพิ่มงานเรียบร้อยแล้ว! ✅', 'success');
-        
-        // Clear form
-        document.getElementById('todoForm').reset();
-        
-        // Reload todos
-        await loadAllTodos();
-        updateStatistics();
         
     } catch (error) {
         console.error('Error saving todo:', error);
@@ -139,34 +130,18 @@ async function handleTabChange(e) {
 
 async function loadAllTodos() {
     try {
-        let query = supabase
-            .from('todos')
-            .select(`
-                *,
-                users!todos_user_id_fkey (
-                    first_name,
-                    last_name
-                )
-            `)
-            .order('created_at', { ascending: false });
+        const response = await api.todo.getAll(currentUser.id);
         
-        // Load user's todos and partner's shared todos
-        if (currentUser.partnerId) {
-            query = query.or(`user_id.eq.${currentUser.id},and(user_id.eq.${currentUser.partnerId},shared_with_partner.eq.true)`);
+        if (response.success && response.data) {
+            todos = response.data.todos || [];
+            
+            // Render initial view (all todos)
+            renderTodos(todos, 'allTodos');
+            
+            console.log(`✅ โหลด Todo สำเร็จ จำนวน ${todos.length} รายการ`);
         } else {
-            query = query.eq('user_id', currentUser.id);
+            throw new Error(response.message || 'ไม่สามารถโหลดข้อมูล Todo ได้');
         }
-        
-        const { data: todosData, error } = await query;
-        
-        if (error) {
-            throw error;
-        }
-        
-        todos = todosData || [];
-        
-        // Render initial view (all todos)
-        renderTodos(todos, 'allTodos');
         
     } catch (error) {
         console.error('Error loading todos:', error);

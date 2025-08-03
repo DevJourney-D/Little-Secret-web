@@ -135,11 +135,25 @@ class NekoAuth {
         }
         
         try {
-            // Parse user data from cookie since there's no profile endpoint
+            // Get user data from cookie since we don't have a specific endpoint
             const userStr = this.getCookie('nekouUser');
             if (userStr) {
                 this.currentUser = JSON.parse(userStr);
                 console.log('✅ User data loaded from cookie:', this.currentUser);
+                
+                // Optionally verify with getUserById endpoint if needed
+                if (this.currentUser.id) {
+                    try {
+                        const userResponse = await api.users.getById(this.currentUser.id);
+                        if (userResponse.success) {
+                            this.currentUser = userResponse.data;
+                            this.setCookie('nekouUser', JSON.stringify(this.currentUser), 5);
+                        }
+                    } catch (error) {
+                        console.warn('Failed to refresh user data from API, using cached data');
+                    }
+                }
+                
                 return this.currentUser;
             } else {
                 throw new Error('No user data found in cookie');

@@ -36,15 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         console.log('⏰ เริ่มต้น Pomodoro...');
-        // ตรวจสอบการเข้าสู่ระบบด้วย userInfo
-        const isLoggedIn = await userInfo.isUserLoggedIn();
+        // ตรวจสอบการเข้าสู่ระบบ
+        const isLoggedIn = await nekouAuth.isAuthenticated();
         if (!isLoggedIn) {
             console.log('❌ ไม่ได้เข้าสู่ระบบ');
             utils.redirect('index.html');
             return;
         }
-        // ดึงข้อมูลผู้ใช้จาก cache
-        currentUser = await userInfo.getCurrentUser();
+        // ดึงข้อมูลผู้ใช้
+        currentUser = nekouAuth.getCurrentUser();
         if (!currentUser) {
             utils.redirect('index.html');
             return;
@@ -200,29 +200,29 @@ function completeSession() {
 async function createNewSession() {
     try {
         const sessionData = {
-            user_id: currentUser.id,
-            session_type: isBreak ? 'break' : 'work',
-            duration_minutes: isBreak ? (isBreak === 'long' ? getLongBreak() / 60 : getShortBreak() / 60) : getWorkTime() / 60,
-            task_name: currentTask ? currentTask.title : null,
-            task_description: currentTask ? (currentTask.description || currentTask.content) : null,
-            started_at: new Date().toISOString(),
-            completed: false
+            duration: isBreak ? (isBreak === 'long' ? getLongBreak() / 60 : getShortBreak() / 60) : getWorkTime() / 60,
+            type: isBreak ? (isBreak === 'long' ? 'long_break' : 'break') : 'work',
+            task: currentTask ? currentTask.title : null,
+            category: 'work'
         };
         
-        const { data, error } = await window.supabase
-            .from('pomodoro_sessions')
-            .insert([sessionData])
-            .select()
-            .single();
+        const response = await api.pomodoro.create(currentUser.id, sessionData);
         
-        if (error) {
-            throw error;
+        if (response.success) {
+            currentSession = response.data;
+            console.log('✅ สร้าง Pomodoro session สำเร็จ');
+        } else {
+            throw new Error(response.message || 'ไม่สามารถสร้าง session ได้');
         }
-        
-        currentSession = data;
         
     } catch (error) {
         console.error('Error creating session:', error);
+        // Continue with offline mode
+        currentSession = {
+            id: Date.now().toString(),
+            type: isBreak ? 'break' : 'work',
+            offline: true
+        };
     }
 }
 
@@ -230,14 +230,19 @@ async function saveSession() {
     if (!currentSession) return;
     
     try {
-        const { error } = await window.supabase
-            .from('pomodoro_sessions')
-            .update({ 
-                completed: true,
-                completed_at: new Date().toISOString()
-            })
-            .eq('id', currentSession.id);        if (error) {
-            throw error;
+        if (!currentSession.offline) {
+            const completionData = {
+                actualDuration: Math.floor((timeLeft - timeLeft) / 60) || 25,
+                notes: currentTask ? currentTask.title : null
+            };
+            
+            const response = await api.pomodoro.complete(currentUser.id, currentSession.id, completionData);
+            
+            if (response.success) {
+                console.log('✅ บันทึก Pomodoro session สำเร็จ');
+            } else {
+                console.error('Error saving session:', response.message);
+            }
         }
         
     } catch (error) {
@@ -388,58 +393,32 @@ async function loadPomodoroStats() {
             return;
         }
         
-        if (currentUser.isGuest) {
-            console.log('👻 ผู้เยี่ยมชม ไม่โหลดสถิติ');
-            updateStatsDisplay();
-            return;
+        console.log(`� กำลังโหลดสถิติสำหรับ: ${currentUser.displayName || currentUser.username}`);
+        
+        try {
+            // Load Pomodoro sessions from API
+            const today = new Date().toISOString().split('T')[0];
+            const response = await api.pomodoro.getAll(currentUser.id, {
+                date: today,
+                status: 'completed'
+            });
+            
+            if (response.success && response.data) {
+                const sessions = response.data.sessions || [];
+                const stats = response.data.stats || {};
+                
+                // Calculate today's statistics
+                todaySessions = stats.completedToday || 0;
+                totalTime = stats.totalMinutes || 0;
+                streak = 1; // Simple streak for now
+                
+                console.log(`📊 สถิติโหลดเสร็จ: วันนี้ ${todaySessions} รอบ, รวม ${totalTime} นาที`);
+            } else {
+                console.log('⚠️ ไม่สามารถโหลดสถิติได้ ใช้ค่าเริ่มต้น');
+            }
+        } catch (error) {
+            console.error('❌ ข้อผิดพลาดในการโหลดสถิติ:', error);
         }
-        
-        if (!window.supabase) {
-            console.log('⚠️ Supabase ไม่พร้อม ใช้สถิติเริ่มต้น');
-            updateStatsDisplay();
-            return;
-        }
-        
-        const today = new Date().toISOString().split('T')[0];
-        
-        console.log(`📊 กำลังโหลดสถิติสำหรับ: ${currentUser.firstName}`);
-        
-        // Load today's sessions
-        const { data: todayData, error: todayError } = await window.supabase
-            .from('pomodoro_sessions')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .gte('started_at', today + 'T00:00:00')
-            .lt('started_at', today + 'T23:59:59')
-            .eq('completed', true);
-        
-        if (todayError) {
-            console.error('❌ ข้อผิดพลาดในการโหลดสถิติวันนี้:', todayError);
-            // Don't throw, just use defaults
-        } else {
-            // Calculate today's statistics
-            todaySessions = todayData ? todayData.filter(s => s.session_type === 'work').length : 0;
-            totalTime = todayData ? todayData.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) : 0;
-        }
-        
-        // Load total statistics for streak calculation
-        const { data: allData, error: allError } = await window.supabase
-            .from('pomodoro_sessions')
-            .select('started_at')
-            .eq('user_id', currentUser.id)
-            .eq('completed', true)
-            .eq('session_type', 'work')
-            .order('started_at', { ascending: false });
-        
-        if (allError) {
-            console.error('❌ ข้อผิดพลาดในการโหลดสถิติทั้งหมด:', allError);
-            // Don't throw, just use default streak
-        } else {
-            // Calculate streak
-            streak = calculateStreak(allData || []);
-        }
-        
-        console.log(`📊 สถิติโหลดเสร็จ: วันนี้ ${todaySessions} รอบ, รวม ${totalTime} นาที, streak ${streak} วัน`);
         
         // Update display
         updateStatsDisplay();
@@ -589,19 +568,7 @@ async function loadTodoList() {
             return;
         }
         
-        if (currentUser.isGuest) {
-            console.log('👻 ผู้เยี่ยมชม ไม่สามารถโหลด Todo ได้');
-            todoList = [];
-            displayGuestTodoMessage();
-            return;
-        }
-        
-        if (!window.supabase) {
-            console.log('⚠️ Supabase ไม่พร้อม ใช้โหมด offline');
-            todoList = [];
-            displayOfflineTodoMessage();
-            return;
-        }
+        console.log('� กำลังโหลด Todo list...');
         
         // Show loading
         if (todoListContainer) {
@@ -613,22 +580,18 @@ async function loadTodoList() {
             `;
         }
         
-        const { data: todos, error } = await window.supabase
-            .from('todos')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .eq('completed', false)
-            .order('created_at', { ascending: false });
+        const response = await api.todo.getAll(currentUser.id, {
+            status: 'pending'
+        });
             
-        if (error) {
-            console.error('❌ ข้อผิดพลาดในการโหลด Todo:', error);
-            throw error;
+        if (response.success && response.data) {
+            todoList = response.data.todos || [];
+            displayTodoList();
+            
+            console.log(`✅ โหลด Todo สำเร็จ: ${todoList.length} รายการ`);
+        } else {
+            throw new Error(response.message || 'ไม่สามารถโหลด Todo ได้');
         }
-        
-        todoList = todos || [];
-        displayTodoList();
-        
-        console.log(`✅ โหลด Todo สำเร็จ: ${todoList.length} รายการ`);
         
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการโหลด Todo:', error);

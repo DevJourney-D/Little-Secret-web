@@ -1,18 +1,34 @@
 // Neko U Settings Page Script
 // Settings management for user profile, preferences, and account
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Check authentication
-    if (!nekouAuth.isAuthenticated()) {
-        window.location.href = 'index.html';
-        return;
-    }
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // รอให้ auth system เริ่มต้นเสร็จก่อน
+        await nekoAuth.initPromise;
+        
+        // อัปเดต token ของ API
+        const token = nekoAuth.getToken();
+        if (token) {
+            nekoAPI.setToken(token);
+        }
+        
+        // Check authentication
+        const isAuthenticated = await nekoAuth.isAuthenticated();
+        if (!isAuthenticated) {
+            window.location.href = 'index.html';
+            return;
+        }
 
-    // Load user data
-    loadUserData();
-    
-    // Initialize event listeners
-    initializeEventListeners();
+        // Load user data
+        await loadUserData();
+        
+        // Initialize event listeners
+        initializeEventListeners();
+        
+    } catch (error) {
+        console.error('Error initializing settings page:', error);
+        utils.showAlert('เกิดข้อผิดพลาดในการโหลดหน้าตั้งค่า', 'error');
+    }
 });
 
 // Initialize all event listeners
@@ -76,16 +92,16 @@ function initializeEventListeners() {
 // Load and display user data
 async function loadUserData() {
     try {
-        showLoading('กำลังโหลดข้อมูลผู้ใช้...');
+        utils.showAlert('กำลังโหลดข้อมูลผู้ใช้...', 'info', 2000);
 
-        const currentUser = nekouAuth.getCurrentUser();
+        const currentUser = await nekoAuth.getCurrentUser();
         if (!currentUser) {
             window.location.href = 'index.html';
             return;
         }
 
         // Fetch latest user profile from API
-        const response = await api.users.getById(currentUser.id);
+        const response = await nekoAPI.getUserById(currentUser.id);
         
         if (!response || !response.success) {
             throw new Error('ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
@@ -96,45 +112,13 @@ async function loadUserData() {
         updatePartnershipStatus(user);
         await loadUserStats(user.id);
 
-        hideLoading();
     } catch (error) {
         console.error('Load user data error:', error);
-        hideLoading();
-        showAlert('ไม่สามารถโหลดข้อมูลผู้ใช้ได้: ' + error.message, 'danger');
+        utils.showAlert('ไม่สามารถโหลดข้อมูลผู้ใช้ได้: ' + error.message, 'error');
     }
 }
 
-// Utility functions
-function showLoading(message = 'กำลังโหลด...') {
-    // Simple loading implementation
-    document.body.style.cursor = 'wait';
-    console.log('Loading:', message);
-}
-
-function hideLoading() {
-    document.body.style.cursor = 'default';
-}
-
-function showAlert(message, type = 'info') {
-    // Create alert element
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
-    alertDiv.innerHTML = `
-        <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'x-circle' : 'info-circle'} me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    document.body.appendChild(alertDiv);
-    
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
-        }
-    }, 3000);
-}
+// Populate user interface with data
 
 function formatDate(dateString) {
     const date = new Date(dateString);
@@ -207,18 +191,27 @@ function populateQuickInfo(user) {
 // Load user statistics
 async function loadUserStats(userId) {
     try {
-        // Load diary stats
-        const diaryResponse = await api.diary.getStats(userId);
-        if (diaryResponse && diaryResponse.success) {
-            const diaryCount = diaryResponse.data.total_entries || 0;
+        // Load stats from dashboard API
+        const dashboardResponse = await nekoAPI.getDashboardData(userId);
+        if (dashboardResponse && dashboardResponse.success) {
+            const stats = dashboardResponse.data.stats;
+            const todayStats = dashboardResponse.data.todayStats;
+            
+            // Update diary count
             const diaryCard = document.querySelector('.stat-card:nth-child(1) p');
-            if (diaryCard) {
-                diaryCard.textContent = `${diaryCount} บันทึก`;
+            if (diaryCard && stats) {
+                diaryCard.textContent = `${stats.diaryEntries || 0} บันทึก`;
+            }
+            
+            // Update message count
+            const messageCard = document.querySelector('.stat-card:nth-child(2) p');
+            if (messageCard && stats) {
+                messageCard.textContent = `${stats.chatMessages || 0} ข้อความ`;
             }
         }
 
         // Calculate relationship days if partner exists
-        const currentUser = nekouAuth.getCurrentUser();
+        const currentUser = await nekoAuth.getCurrentUser();
         if (currentUser.partner_id && currentUser.relationship_anniversary) {
             const anniversaryDate = new Date(currentUser.relationship_anniversary);
             const today = new Date();
@@ -324,7 +317,7 @@ async function saveProfile(section) {
     saveBtn.disabled = true;
 
     try {
-        const currentUser = nekouAuth.getCurrentUser();
+        const currentUser = await nekoAuth.getCurrentUser();
         if (!currentUser) {
             throw new Error('ไม่พบข้อมูลผู้ใช้');
         }
@@ -358,25 +351,21 @@ async function saveProfile(section) {
             }
         });
 
-        const response = await api.users.update(currentUser.id, updateData);
+        const response = await nekoAPI.updateUser(currentUser.id, updateData);
 
         if (!response || !response.success) {
             throw new Error(response?.message || 'ไม่สามารถบันทึกข้อมูลได้');
         }
 
-        // Update localStorage with new data
-        const updatedUser = { ...currentUser, ...response.data };
-        localStorage.setItem('nekouUser', JSON.stringify(updatedUser));
-
-        showAlert('บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+        utils.showAlert('บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
         cancelEditMode(section);
+        
+        // Reload user data to show updated information
+        await loadUserData();
         
     } catch (error) {
         console.error('Save profile error:', error);
-        showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'danger');
-    } finally {
-        saveBtn.innerHTML = originalText;
-        saveBtn.disabled = false;
+        utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
     }
 }
 
@@ -388,7 +377,7 @@ async function savePreferences() {
     saveBtn.disabled = true;
 
     try {
-        const currentUser = nekouAuth.getCurrentUser();
+        const currentUser = await nekoAuth.getCurrentUser();
         if (!currentUser) {
             throw new Error('ไม่พบข้อมูลผู้ใช้');
         }
@@ -418,22 +407,18 @@ async function savePreferences() {
             timezone: form.querySelector('#timezone').value
         };
 
-        const response = await api.users.update(currentUser.id, updateData);
+        const response = await nekoAPI.updateUser(currentUser.id, updateData);
 
         if (!response || !response.success) {
             throw new Error(response?.message || 'ไม่สามารถบันทึกการตั้งค่าได้');
         }
 
-        // Update localStorage with new data
-        const updatedUser = { ...currentUser, ...response.data };
-        localStorage.setItem('nekouUser', JSON.stringify(updatedUser));
-
-        showAlert('บันทึกการตั้งค่าเรียบร้อยแล้ว', 'success');
+        utils.showAlert('บันทึกการตั้งค่าเรียบร้อยแล้ว', 'success');
         cancelEditMode('preferences');
 
     } catch (error) {
         console.error('Save preferences error:', error);
-        showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึกการตั้งค่า', 'danger');
+        utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึกการตั้งค่า', 'error');
     } finally {
         saveBtn.innerHTML = originalText;
         saveBtn.disabled = false;
@@ -459,7 +444,7 @@ async function handleEmailChange() {
     btn.disabled = true;
 
     try {
-        const currentUser = nekouAuth.getCurrentUser();
+        const currentUser = await nekoAuth.getCurrentUser();
         if (!currentUser) {
             throw new Error('ไม่พบข้อมูลผู้ใช้');
         }
@@ -468,17 +453,17 @@ async function handleEmailChange() {
         const currentPassword = document.getElementById('currentPasswordEmail').value;
 
         // Validate email format
-        if (!nekouAuth.isValidEmail(newEmail)) {
+        if (!utils.isValidEmail(newEmail)) {
             throw new Error('รูปแบบอีเมลไม่ถูกต้อง');
         }
 
         // Check email availability first
-        const availability = await nekouAuth.checkEmail(newEmail);
+        const availability = await nekoAPI.checkEmail(newEmail);
         if (!availability.available) {
             throw new Error('อีเมลนี้ถูกใช้แล้ว');
         }
 
-        const response = await api.users.update(currentUser.id, {
+        const response = await nekoAPI.updateUser(currentUser.id, {
             email: newEmail,
             current_password: currentPassword
         });
@@ -487,19 +472,15 @@ async function handleEmailChange() {
             throw new Error(response?.message || 'ไม่สามารถเปลี่ยนอีเมลได้');
         }
 
-        showAlert('เปลี่ยนอีเมลสำเร็จ', 'success');
+        utils.showAlert('เปลี่ยนอีเมลสำเร็จ', 'success');
         toggleEmailFormVisibility();
         document.getElementById('changeEmailForm').reset();
-        
-        // Update localStorage
-        const updatedUser = { ...currentUser, email: newEmail };
-        localStorage.setItem('nekouUser', JSON.stringify(updatedUser));
         
         await loadUserData();
 
     } catch (error) {
         console.error('Email change error:', error);
-        showAlert(error.message || 'เกิดข้อผิดพลาดในการเปลี่ยนอีเมล', 'danger');
+        utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการเปลี่ยนอีเมล', 'error');
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -514,7 +495,7 @@ async function handlePasswordChange() {
     btn.disabled = true;
 
     try {
-        const currentUser = nekouAuth.getCurrentUser();
+        const currentUser = await nekoAuth.getCurrentUser();
         if (!currentUser) {
             throw new Error('ไม่พบข้อมูลผู้ใช้');
         }
@@ -531,7 +512,7 @@ async function handlePasswordChange() {
             throw new Error('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
         }
 
-        const response = await api.request(`/api/users/${currentUser.id}/change-password`, {
+        const response = await nekoAPI.request(`/api/users/${currentUser.id}/change-password`, {
             method: 'PUT',
             body: JSON.stringify({
                 current_password: currentPassword,
@@ -544,7 +525,7 @@ async function handlePasswordChange() {
             throw new Error(response?.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้');
         }
 
-        showAlert('เปลี่ยนรหัสผ่านสำเร็จ คุณจะถูกนำไปยังหน้าเข้าสู่ระบบใหม่', 'success');
+        utils.showAlert('เปลี่ยนรหัสผ่านสำเร็จ คุณจะถูกนำไปยังหน้าเข้าสู่ระบบใหม่', 'success');
         togglePasswordFormVisibility();
         document.getElementById('changePasswordForm').reset();
 
@@ -553,12 +534,12 @@ async function handlePasswordChange() {
 
         // Logout user after password change for security
         setTimeout(() => {
-            nekouAuth.logout();
+            nekoAuth.logout();
         }, 2000);
 
     } catch (error) {
         console.error('Password change error:', error);
-        showAlert(error.message || 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน', 'danger');
+        utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน', 'error');
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -702,7 +683,7 @@ function resetPasswordStrengthIndicator() {
 
 function handleLogout() {
     if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
-        nekouAuth.logout();
+        nekoAuth.logout();
     }
 }
 

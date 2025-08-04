@@ -6,14 +6,14 @@ class NekoAuth {
         this.currentUser = null;
         this.token = null;
         this.autoLogoutTimer = null;
-        this.sessionDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
+        this.sessionDuration = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
         this.initPromise = this.init();
     }
 
     // Cookie management helper functions
-    setCookie(name, value, minutes = 5) {
+    setCookie(name, value, hours = 24) {
         const expires = new Date();
-        expires.setTime(expires.getTime() + (minutes * 60 * 1000));
+        expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
         document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;secure;samesite=strict`;
     }
 
@@ -595,6 +595,14 @@ function hideLoading(buttonId) {
         if (textSpan) textSpan.style.display = 'inline';
         if (loadingSpan) loadingSpan.style.display = 'none';
     }
+}
+
+// Create global instance
+const nekoAuth = new NekoAuth();
+
+// Export for use in other files
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { NekoAuth, nekoAuth };
 }
 
 console.log('🔐 Neko U Auth System Loaded');

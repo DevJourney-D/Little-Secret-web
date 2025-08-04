@@ -7,7 +7,25 @@ class NekoUAPI {
         this.baseURL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
             ? `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}`  // Development proxy
             : 'https://little-secret-api.vercel.app';  // Production
-        this.token = localStorage.getItem('nekouToken');
+        this.token = null;
+    }
+
+    // Get token from auth system or cookie
+    getAuthToken() {
+        // Try to get from nekoAuth first
+        if (typeof nekoAuth !== 'undefined') {
+            return nekoAuth.getToken();
+        }
+        
+        // Fallback to cookie reading
+        const nameEQ = "nekouToken=";
+        const ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+        }
+        return null;
     }
 
     // Helper method for making API requests
@@ -18,8 +36,10 @@ class NekoUAPI {
             'Accept': 'application/json',
         };
 
-        if (this.token) {
-            defaultHeaders['Authorization'] = `Bearer ${this.token}`;
+        // Get current token
+        const currentToken = this.token || this.getAuthToken();
+        if (currentToken) {
+            defaultHeaders['Authorization'] = `Bearer ${currentToken}`;
         }
 
         const config = {
@@ -57,7 +77,7 @@ class NekoUAPI {
     // Update token
     setToken(token) {
         this.token = token;
-        localStorage.setItem('nekouToken', token);
+        // Don't store in localStorage since we're using cookies now
     }
 
     // 🌟 GENERAL

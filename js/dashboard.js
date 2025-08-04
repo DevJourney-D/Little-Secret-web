@@ -6,6 +6,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         console.log('🏠 เริ่มต้นแดชบอร์ด...');
         
+        // รอให้ auth system เริ่มต้นเสร็จก่อน
+        await nekoAuth.initPromise;
+        
+        // อัปเดต token ของ API
+        const token = nekoAuth.getToken();
+        if (token) {
+            nekoAPI.setToken(token);
+        }
+        
         // เพิ่ม loading indicator
         const loadingIndicator = document.createElement('div');
         loadingIndicator.className = 'loading-indicator';
@@ -15,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // ตรวจสอบการเข้าสู่ระบบ
         console.log('🔍 ตรวจสอบการเข้าสู่ระบบ...');
-        const isLoggedIn = await nekouAuth.isAuthenticated();
+        const isLoggedIn = await nekoAuth.isAuthenticated();
         
         console.log('🔐 ผลการตรวจสอบการล็อกอิน:', isLoggedIn);
         
@@ -26,8 +35,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadingIndicator.remove();
             
             // แสดงข้อความแจ้งเตือน
-            if (typeof showAlert === 'function') {
-                showAlert('กรุณาเข้าสู่ระบบก่อนใช้งาน', 'warning');
+            if (typeof utils !== 'undefined' && utils.showAlert) {
+                utils.showAlert('กรุณาเข้าสู่ระบบก่อนใช้งาน', 'warning');
             }
             
             // Redirect to login หลังจาก delay เล็กน้อย
@@ -56,18 +65,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการเริ่มต้นแดชบอร์ด:', error);
-        showErrorMessage('เกิดข้อผิดพลาดในการโหลดแดชบอร์ด');
+        utils.showAlert('เกิดข้อผิดพลาดในการโหลดแดชบอร์ด: ' + error.message, 'error');
     }
 });
 
 // Debug function สำหรับตรวจสอบ session
 function debugSession() {
-    const session = utils.getCurrentUser();
+    const session = nekoAuth.getCurrentUserSync();
+    const token = nekoAuth.getToken();
     console.log('🔍 Debug Session:', {
         hasSession: !!session,
         sessionData: session,
-        isExpired: session ? (new Date() > new Date(session.expiresAt)) : 'N/A',
-        timeLeft: session ? Math.round((new Date(session.expiresAt) - new Date()) / 1000 / 60) + ' นาที' : 'N/A'
+        hasToken: !!token,
+        tokenPreview: token ? token.substring(0, 20) + '...' : null
     });
     return session;
 }
@@ -83,12 +93,18 @@ async function initializeDashboard() {
         showLoadingState(true);
         
         // ตรวจสอบการเข้าสู่ระบบและดึงข้อมูลผู้ใช้
-        const isLoggedIn = await nekouAuth.isAuthenticated();
+        const isLoggedIn = await nekoAuth.isAuthenticated();
         if (!isLoggedIn) {
             throw new Error('ไม่ได้เข้าสู่ระบบ');
         }
         
-        currentUser = nekouAuth.getCurrentUser();
+        currentUser = await nekoAuth.getCurrentUser();
+        
+        // อัปเดต token ของ API
+        const token = nekoAuth.getToken();
+        if (token) {
+            nekoAPI.setToken(token);
+        }
         
         if (currentUser) {
             console.log('✅ ผู้ใช้ล็อกอิน:', currentUser.displayName || currentUser.username);
@@ -167,7 +183,7 @@ async function loadDashboardData() {
 
         console.log('📊 กำลังโหลดข้อมูล Dashboard จาก API...');
         
-        const dashboardResponse = await api.getDashboard(currentUser.id);
+        const dashboardResponse = await nekoAPI.getDashboardData(currentUser.id);
         
         if (dashboardResponse.success && dashboardResponse.data) {
             const dashboardData = dashboardResponse.data;
@@ -662,7 +678,7 @@ async function handleLogout() {
             confirmBtn.innerHTML = '<i class="bi bi-arrow-clockwise spinning me-2"></i>กำลังออกจากระบบ...';
             
             // ออกจากระบบ
-            await userInfo.logout();
+            await nekoAuth.logout();
             
             // ปิด modal
             modal.hide();
@@ -694,7 +710,7 @@ async function refreshDashboard() {
         showLoadingState(true);
         
         // รีเฟรชข้อมูลผู้ใช้
-        await userInfo.refreshUserData();
+        currentUser = await nekoAuth.getCurrentUser();
         
         // รีโหลดแดชบอร์ด
         await initializeDashboard();
@@ -742,19 +758,6 @@ function updateDateTime() {
     const dateTimeElement = document.getElementById('currentDateTime');
     if (dateTimeElement) {
         dateTimeElement.textContent = now.toLocaleDateString('th-TH', options);
-    }
-}
-
-function showErrorMessage(message) {
-    const alertContainer = document.getElementById('alertContainer');
-    if (alertContainer) {
-        alertContainer.innerHTML = `
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle"></i>
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
     }
 }
 

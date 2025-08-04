@@ -256,77 +256,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 window.location.href = '/index.html';
                 return;
             }
-                    if (session && session.user) {
-                        console.log('� พบ Supabase session:', session.user.email);
-                        // Create a basic user object from Supabase session
-                        currentUser = {
-                            id: session.user.id,
-                            email: session.user.email,
-                            } else {
+        } else {
             console.warn('⚠️ Dependencies ไม่พร้อม');
             window.location.href = '/index.html';
             return;
         }
-                        // Save to localStorage for future use
-                        utils.saveUserSession(currentUser);
-                    }
-                } catch (sessionError) {
-                    console.warn('⚠️ ไม่สามารถดึง Supabase session:', sessionError);
-                }
-            }
-            
-            // If still no user, create a temporary one to allow page to function
-            if (!currentUser) {
-                console.log('� สร้างผู้ใช้ชั่วคราวเพื่อให้หน้าทำงานได้');
-                currentUser = {
-                    id: 'guest-' + Date.now(),
-                    firstName: 'ผู้เยี่ยมชม',
-                    lastName: '',
-                    email: 'guest@example.com',
-                    isGuest: true
-                };
-            }
-            
-            console.log('✅ ใช้ข้อมูลผู้ใช้:', currentUser);
-        } else {
-            console.warn('⚠️ Dependencies ไม่พร้อม สร้างผู้ใช้ชั่วคราว');
-            currentUser = {
-                id: 'guest-' + Date.now(),
-                firstName: 'ผู้เยี่ยมชม',
-                lastName: '',
-                email: 'guest@example.com',
-                isGuest: true
-            };
-        }
-        
+
         // Initialize Bootstrap dropdown
         initializeDropdown();
-        
+
         // Update user display
         updateUserDisplay();
-        
+
         await initializeMath();
-        
+
         console.log('🎮 หน้า Math Game โหลดเสร็จแล้ว!');
-        
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการเริ่มต้น:', error);
-        
-        // Create fallback user to prevent page crash
-        currentUser = {
-            id: 'error-user-' + Date.now(),
-            firstName: 'ผู้ใช้',
-            lastName: '',
-            email: 'user@example.com',
-            isGuest: true
-        };
-        
-        try {
-            await initializeMath();
-            console.log('🔧 เริ่มต้นระบบด้วยผู้ใช้ fallback');
-        } catch (fallbackError) {
-            console.error('❌ ไม่สามารถเริ่มต้นระบบได้:', fallbackError);
-        }
+        // Fallback: redirect to login
+        window.location.href = '/index.html';
     }
 });
 
@@ -815,28 +763,10 @@ async function loadMathStats() {
             return;
         }
         
-        try {
-            const response = await api.math.getAll();
-            const data = response.data || [];
-            
-            if (data.length > 0) {
-            totalProblems = data.length;
-            correctCount = data.filter(p => p.is_correct).length;
-            incorrectCount = totalProblems - correctCount;
-            
-            // Find best time
-            const correctProblems = data.filter(p => p.is_correct && p.time_spent);
-            if (correctProblems.length > 0) {
-                bestTime = Math.min(...correctProblems.map(p => parseFloat(p.time_spent)));
-            }
-            
-            console.log('📊 โหลดสถิติของ', currentUser.firstName, 'เรียบร้อย:', {
-                totalProblems,
-                correctCount,
-                incorrectCount,
-                bestTime: bestTime ? bestTime + 's' : 'ยังไม่มี'
-            });
-        } else {
+        const response = await api.math.getAll();
+        const data = response.data || [];
+        
+        if (data.length > 0) {
             console.log('📊 โหลดสถิติสำเร็จ:', data.length, 'โจทย์');
             
             // Calculate statistics
@@ -855,6 +785,13 @@ async function loadMathStats() {
             
             // Store recent problems
             recentProblems = data.slice(0, 10);
+            
+            console.log('📊 โหลดสถิติของ', currentUser.firstName, 'เรียบร้อย:', {
+                totalProblems,
+                correctCount,
+                incorrectCount,
+                bestTime: bestTime ? bestTime + 's' : 'ยังไม่มี'
+            });
         } else {
             console.log('ℹ️', currentUser.firstName, 'ยังไม่มีสถิติวันนี้');
             totalProblems = 0;
@@ -864,50 +801,39 @@ async function loadMathStats() {
         }
         
         // Update UI stats
-        updateStats();
-        } catch (error) {
-            console.error('❌ ข้อผิดพลาดในการโหลดสถิติ:', error);
-            // Show error to user
-            if (typeof utils !== 'undefined' && utils.showAlert) {
-                utils.showAlert('เกิดข้อผิดพลาดในการโหลดสถิติ', 'error');
-            }
+        updateStatsDisplay();
+        
+    } catch (error) {
+        console.error('❌ ข้อผิดพลาดในการโหลดสถิติ:', error);
+        // Show error to user
+        if (typeof utils !== 'undefined' && utils.showAlert) {
+            utils.showAlert('เกิดข้อผิดพลาดในการโหลดสถิติ', 'error');
         }
+    }
 }
 
 
 async function saveMathProblem(problem, userAnswer, isCorrect, timeSpent) {
+    if (!currentUser || !currentUser.id) {
+        console.warn('⚠️ ไม่มีข้อมูลผู้ใช้ ไม่สามารถบันทึกได้');
+        return;
+    }
     try {
-        if (!currentUser || !currentUser.id) {
-            console.warn('⚠️ ไม่มีข้อมูลผู้ใช้ ไม่สามารถบันทึกได้');
-            return;
-        }
-        
-        try {
-            console.log('💾 กำลังบันทึกโจทย์สำหรับผู้ใช้:', currentUser.firstName, 'ID:', currentUser.id);
-            
-            const mathData = {
-                problemText: problem.display,
-                correctAnswer: problem.answer.toString(),
-                userAnswer: userAnswer.toString(),
-                isCorrect: isCorrect,
-                timeSpent: timeSpent,
-                difficulty: difficulty,
-                operation: problem.operation
-            };
-            
-            const response = await api.math.create(mathData);
-            
-            if (response.success) {
-                console.log('✅ บันทึกโจทย์คณิตศาสตร์เรียบร้อยแล้ว!');
-            } else {
-                throw new Error(response.message || 'Failed to save math problem');
-            }
-        } catch (error) {
-            console.error('❌ ข้อผิดพลาดในการบันทึกโจทย์คณิตศาสตร์:', error);
-            // Show error to user
-            if (typeof utils !== 'undefined' && utils.showAlert) {
-                utils.showAlert('เกิดข้อผิดพลาดในการบันทึกผลลัพธ์', 'error');
-            }
+        console.log('💾 กำลังบันทึกโจทย์สำหรับผู้ใช้:', currentUser.firstName, 'ID:', currentUser.id);
+        const mathData = {
+            problemText: problem.display,
+            correctAnswer: problem.answer.toString(),
+            userAnswer: userAnswer.toString(),
+            isCorrect: isCorrect,
+            timeSpent: timeSpent,
+            difficulty: difficulty,
+            operation: problem.operation
+        };
+        const response = await api.math.create(mathData);
+        if (response.success) {
+            console.log('✅ บันทึกโจทย์คณิตศาสตร์เรียบร้อยแล้ว!');
+        } else {
+            throw new Error(response.message || 'Failed to save math problem');
         }
     } catch (error) {
         console.error('❌ ข้อผิดพลาดในการบันทึกโจทย์คณิตศาสตร์:', error);

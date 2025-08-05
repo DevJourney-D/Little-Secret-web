@@ -1106,12 +1106,1082 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/config.js"></script>
-    <script src="../js/user-info.js"></script>
+    <script src="../js/simple-api.js"></script>
     <script src="../js/analytics.js"></script>
-    <script src="../js/presence.js"></script>
-    <script src="../js/security.js"></script>
-    <script src="../js/diary.js"></script>
+    
+    <script>
+        // Diary management system for Neko U
+        let supabase;
+        let currentUser = null;
+        let partnerProfile = null;
+        let diaryEntries = [];
+        let currentEditId = null;
+
+        // DOM elements
+        const elements = {
+            diaryForm: document.getElementById('diaryForm'),
+            diaryTitle: document.getElementById('diaryTitle'),
+            diaryContent: document.getElementById('diaryContent'),
+            diaryMood: document.getElementById('diaryMood'),
+            diaryVisibility: document.getElementById('diaryVisibility'),
+            diaryCategory: document.getElementById('diaryCategory'),
+            saveDiaryBtn: document.getElementById('saveDiaryBtn'),
+            charCount: document.getElementById('charCount'),
+            
+            // Edit modal elements
+            editDiaryModal: document.getElementById('editDiaryModal'),
+            editDiaryForm: document.getElementById('editDiaryForm'),
+            editDiaryId: document.getElementById('editDiaryId'),
+            editDiaryTitle: document.getElementById('editDiaryTitle'),
+            editDiaryContent: document.getElementById('editDiaryContent'),
+            editDiaryMood: document.getElementById('editDiaryMood'),
+            editDiaryVisibility: document.getElementById('editDiaryVisibility'),
+            editDiaryCategory: document.getElementById('editDiaryCategory'),
+            editCharCount: document.getElementById('editCharCount'),
+            updateDiaryBtn: document.getElementById('updateDiaryBtn'),
+            
+            // Delete modal elements
+            deleteDiaryModal: document.getElementById('deleteDiaryModal'),
+            deleteDiaryId: document.getElementById('deleteDiaryId'),
+            confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
+            
+            // Search and filter elements
+            searchInput: document.getElementById('searchInput'),
+            sortBy: document.getElementById('sortBy'),
+            
+            // Tab content containers
+            allDiaryEntries: document.getElementById('allDiaryEntries'),
+            myDiaryEntries: document.getElementById('myDiaryEntries'),
+            partnerDiaryEntries: document.getElementById('partnerDiaryEntries'),
+            sharedDiaryEntries: document.getElementById('sharedDiaryEntries'),
+            
+            userDisplayName: document.getElementById('userDisplayName')
+        };
+
+        // Initialize the diary page
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                console.log('📖 เริ่มต้นไดอารี่...');
+                
+                // ตรวจสอบการเข้าสู่ระบบ
+                if (window.nekouAuth && await nekouAuth.isAuthenticated()) {
+                    currentUser = nekouAuth.getCurrentUser();
+                } else {
+                    console.log('❌ ไม่ได้เข้าสู่ระบบ');
+                    if (window.utils) {
+                        utils.redirect('index.html');
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                    return;
+                }
+
+                if (!currentUser) {
+                    if (window.utils) {
+                        utils.redirect('index.html');
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                    return;
+                }
+                
+                await initializeDiary();
+                
+                console.log('✅ ไดอารี่เริ่มต้นสำเร็จ');
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการเริ่มต้นไดอารี่:', error);
+            }
+        });
+
+        function updateUserDisplay() {
+            if (elements.userDisplayName && currentUser) {
+                const displayName = currentUser.displayName || currentUser.username || 'ผู้ใช้';
+                elements.userDisplayName.textContent = displayName;
+                console.log('👤 แสดงชื่อผู้ใช้:', displayName);
+            }
+            
+            const userName = document.getElementById('userName');
+            if (userName && currentUser) {
+                userName.textContent = `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.username || 'ผู้ใช้';
+            }
+        }
+
+        // Initialize diary functionality
+        async function initializeDiary() {
+            try {
+                console.log('🔄 เริ่มต้นระบบไดอารี่...');
+                
+                // แสดงชื่อผู้ใช้
+                updateUserDisplay();
+                
+                // Setup event listeners
+                setupEventListeners();
+                
+                // โหลดข้อมูลไดอารี่
+                await loadDiaryEntries();
+                
+                console.log('✅ ระบบไดอารี่เริ่มต้นสำเร็จ');
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการเริ่มต้นระบบไดอารี่:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถโหลดระบบไดอารี่ได้', 'error');
+                }
+            }
+        }
+
+        // โหลดข้อมูลไดอารี่จาก API
+        async function loadDiaryEntries() {
+            try {
+                console.log('📖 กำลังโหลดไดอารี่...');
+                
+                if (!currentUser || !currentUser.id) {
+                    throw new Error('ไม่มีข้อมูลผู้ใช้');
+                }
+                
+                // Try using API if available
+                if (window.api && window.api.diary) {
+                    const response = await api.diary.getAll(currentUser.id);
+                    
+                    if (response.success && response.data) {
+                        diaryEntries = response.data.diaries || [];
+                        console.log(`✅ โหลดไดอารี่สำเร็จ จำนวน ${diaryEntries.length} รายการ`);
+                        
+                        // แสดงผลไดอารี่
+                        await displayDiaryEntries();
+                    } else {
+                        throw new Error('ไม่สามารถโหลดข้อมูลไดอารี่ได้');
+                    }
+                } else {
+                    // Fallback to simple API
+                    const response = await SIMPLE_API.getDiaries(currentUser.id);
+                    diaryEntries = response.data || [];
+                    await displayDiaryEntries();
+                }
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการโหลดไดอารี่:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถโหลดข้อมูลไดอารี่ได้', 'error');
+                } else {
+                    alert('ไม่สามารถโหลดข้อมูลไดอารี่ได้');
+                }
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Initialize mood selectors
+            initializeMoodSelectors();
+            
+            // Initialize character counters
+            initializeCharacterCounters();
+            
+            // Initialize form handlers
+            initializeFormHandlers();
+            
+            // Initialize search and filters
+            initializeSearchAndFilters();
+        }
+
+        // Initialize mood selectors
+        function initializeMoodSelectors() {
+            // Main mood selector
+            const moodOptions = document.querySelectorAll('.mood-option:not(#editMoodSelector .mood-option)');
+            moodOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    moodOptions.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    if (elements.diaryMood) {
+                        elements.diaryMood.value = this.dataset.mood;
+                    }
+                });
+            });
+            
+            // Edit modal mood selector
+            const editMoodOptions = document.querySelectorAll('#editMoodSelector .mood-option');
+            editMoodOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    editMoodOptions.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    if (elements.editDiaryMood) {
+                        elements.editDiaryMood.value = this.dataset.mood;
+                    }
+                });
+            });
+        }
+
+        // Initialize character counters
+        function initializeCharacterCounters() {
+            // Main form character counter
+            if (elements.diaryContent && elements.charCount) {
+                elements.diaryContent.addEventListener('input', function() {
+                    const count = this.value.length;
+                    elements.charCount.textContent = count;
+                    
+                    if (count > 1000) {
+                        elements.charCount.style.color = '#dc3545';
+                    } else if (count > 800) {
+                        elements.charCount.style.color = '#ffc107';
+                    } else {
+                        elements.charCount.style.color = '#666';
+                    }
+                });
+            }
+            
+            // Edit modal character counter
+            if (elements.editDiaryContent && elements.editCharCount) {
+                elements.editDiaryContent.addEventListener('input', function() {
+                    const count = this.value.length;
+                    elements.editCharCount.textContent = count;
+                    
+                    if (count > 1000) {
+                        elements.editCharCount.style.color = '#dc3545';
+                    } else if (count > 800) {
+                        elements.editCharCount.style.color = '#ffc107';
+                    } else {
+                        elements.editCharCount.style.color = '#666';
+                    }
+                });
+            }
+        }
+
+        // Initialize form handlers
+        function initializeFormHandlers() {
+            // Main diary form
+            if (elements.diaryForm) {
+                elements.diaryForm.addEventListener('submit', handleDiarySubmit);
+            }
+            
+            // Edit diary form
+            if (elements.updateDiaryBtn) {
+                elements.updateDiaryBtn.addEventListener('click', handleDiaryUpdate);
+            }
+            
+            // Delete diary confirmation
+            if (elements.confirmDeleteBtn) {
+                elements.confirmDeleteBtn.addEventListener('click', handleDiaryDelete);
+            }
+
+            // Fallback form handlers for simple structure
+            const createForm = document.getElementById('createDiaryForm');
+            if (createForm) {
+                createForm.addEventListener('submit', handleCreateDiary);
+            }
+            
+            const editForm = document.getElementById('editDiaryForm');
+            if (editForm) {
+                editForm.addEventListener('submit', handleUpdateDiary);
+            }
+        }
+
+        // Initialize search and filters
+        function initializeSearchAndFilters() {
+            // Search input
+            if (elements.searchInput) {
+                elements.searchInput.addEventListener('input', debounce(filterAndDisplayEntries, 300));
+            } else {
+                // Fallback search
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) {
+                    searchInput.addEventListener('input', handleSearch);
+                }
+            }
+            
+            // Sort selector
+            if (elements.sortBy) {
+                elements.sortBy.addEventListener('change', filterAndDisplayEntries);
+            }
+            
+            // Tab change handlers
+            document.querySelectorAll('[data-bs-toggle="pill"]').forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function(event) {
+                    const targetTab = event.target.id;
+                    console.log(`Switching to tab: ${targetTab}`);
+                    
+                    // Show appropriate loading and then filter
+                    setTimeout(() => {
+                        filterAndDisplayEntries();
+                    }, 100);
+                });
+            });
+            
+            // Handle initial tab loading
+            setTimeout(() => {
+                filterAndDisplayEntries();
+            }, 100);
+        }
+
+        // Handle diary form submission
+        async function handleDiarySubmit(e) {
+            e.preventDefault();
+            
+            try {
+                if (elements.saveDiaryBtn) {
+                    elements.saveDiaryBtn.disabled = true;
+                    elements.saveDiaryBtn.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> กำลังบันทึก...';
+                }
+                
+                const formData = {
+                    title: elements.diaryTitle?.value.trim() || '',
+                    content: elements.diaryContent?.value.trim() || '',
+                    mood: elements.diaryMood?.value || '',
+                    category: elements.diaryCategory?.value || 'daily',
+                    isSharedWithPartner: elements.diaryVisibility?.value === 'shared' || false
+                };
+                
+                // Validate form data
+                if (!formData.title || !formData.content || !formData.mood) {
+                    throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+                }
+                
+                if (formData.content.length > 1000) {
+                    throw new Error('เนื้อหาต้องไม่เกิน 1000 ตัวอักษร');
+                }
+                
+                // Save to API
+                let response;
+                if (window.api && window.api.diary) {
+                    response = await api.diary.create(currentUser.id, formData);
+                } else {
+                    response = await SIMPLE_API.createDiary({
+                        ...formData,
+                        userId: currentUser.id
+                    });
+                }
+                
+                if (response.success) {
+                    // Show success message
+                    if (window.utils) {
+                        utils.showAlert('บันทึกไดอารี่เรียบร้อยแล้ว! 💕', 'success');
+                    } else {
+                        alert('บันทึกไดอารี่เรียบร้อยแล้ว! 💕');
+                    }
+                    
+                    // Reset form
+                    resetDiaryForm();
+                    
+                    // Reload entries
+                    await loadDiaryEntries();
+                } else {
+                    throw new Error(response.message || 'ไม่สามารถบันทึกไดอารี่ได้');
+                }
+                
+            } catch (error) {
+                console.error('Error saving diary:', error);
+                if (window.utils) {
+                    utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+                } else {
+                    alert(error.message || 'เกิดข้อผิดพลาดในการบันทึก');
+                }
+            } finally {
+                if (elements.saveDiaryBtn) {
+                    elements.saveDiaryBtn.disabled = false;
+                    elements.saveDiaryBtn.innerHTML = '<i class="bi bi-save"></i> บันทึกไดอารี่';
+                }
+            }
+        }
+
+        // Handle diary update
+        async function handleDiaryUpdate() {
+            try {
+                if (elements.updateDiaryBtn) {
+                    elements.updateDiaryBtn.disabled = true;
+                    elements.updateDiaryBtn.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> กำลังบันทึก...';
+                }
+                
+                const entryId = elements.editDiaryId?.value;
+                const formData = {
+                    title: elements.editDiaryTitle?.value.trim() || '',
+                    content: elements.editDiaryContent?.value.trim() || '',
+                    mood: elements.editDiaryMood?.value || '',
+                    visibility: elements.editDiaryVisibility?.value || 'private',
+                    category: elements.editDiaryCategory?.value || 'daily',
+                    updated_at: new Date().toISOString()
+                };
+                
+                // Validate form data
+                if (!formData.title || !formData.content || !formData.mood) {
+                    throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+                }
+                
+                if (formData.content.length > 1000) {
+                    throw new Error('เนื้อหาต้องไม่เกิน 1000 ตัวอักษร');
+                }
+                
+                // Update in database
+                if (window.supabase) {
+                    const { error } = await window.supabase
+                        .from('diary_entries')
+                        .update(formData)
+                        .eq('id', entryId)
+                        .eq('user_id', currentUser.id);
+                        
+                    if (error) throw error;
+                } else {
+                    // Fallback to simple API
+                    await SIMPLE_API.updateDiary(entryId, formData);
+                }
+                
+                // Close modal
+                if (elements.editDiaryModal) {
+                    const modal = bootstrap.Modal.getInstance(elements.editDiaryModal);
+                    if (modal) modal.hide();
+                }
+                
+                // Show success message
+                if (window.utils) {
+                    utils.showAlert('แก้ไขไดอารี่เรียบร้อยแล้ว! ✨', 'success');
+                } else {
+                    alert('แก้ไขไดอารี่เรียบร้อยแล้ว! ✨');
+                }
+                
+                // Reload entries
+                await loadDiaryEntries();
+                
+            } catch (error) {
+                console.error('Error updating diary:', error);
+                if (window.utils) {
+                    utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการแก้ไข', 'error');
+                } else {
+                    alert(error.message || 'เกิดข้อผิดพลาดในการแก้ไข');
+                }
+            } finally {
+                if (elements.updateDiaryBtn) {
+                    elements.updateDiaryBtn.disabled = false;
+                    elements.updateDiaryBtn.innerHTML = '<i class="bi bi-save"></i> บันทึกการแก้ไข';
+                }
+            }
+        }
+
+        // Handle diary deletion
+        async function handleDiaryDelete() {
+            try {
+                if (elements.confirmDeleteBtn) {
+                    elements.confirmDeleteBtn.disabled = true;
+                    elements.confirmDeleteBtn.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> กำลังลบ...';
+                }
+                
+                const entryId = elements.deleteDiaryId?.value;
+                
+                // Delete from database
+                if (window.supabase) {
+                    const { error } = await window.supabase
+                        .from('diary_entries')
+                        .delete()
+                        .eq('id', entryId)
+                        .eq('user_id', currentUser.id);
+                        
+                    if (error) throw error;
+                } else {
+                    // Fallback to simple API
+                    await SIMPLE_API.deleteDiary(entryId);
+                }
+                
+                // Close modal
+                if (elements.deleteDiaryModal) {
+                    const modal = bootstrap.Modal.getInstance(elements.deleteDiaryModal);
+                    if (modal) modal.hide();
+                }
+                
+                // Show success message
+                if (window.utils) {
+                    utils.showAlert('ลบไดอารี่เรียบร้อยแล้ว', 'success');
+                } else {
+                    alert('ลบไดอารี่เรียบร้อยแล้ว');
+                }
+                
+                // Reload entries
+                await loadDiaryEntries();
+                
+            } catch (error) {
+                console.error('Error deleting diary:', error);
+                if (window.utils) {
+                    utils.showAlert(error.message || 'เกิดข้อผิดพลาดในการลบ', 'error');
+                } else {
+                    alert(error.message || 'เกิดข้อผิดพลาดในการลบ');
+                }
+            } finally {
+                if (elements.confirmDeleteBtn) {
+                    elements.confirmDeleteBtn.disabled = false;
+                    elements.confirmDeleteBtn.innerHTML = '<i class="bi bi-trash"></i> ลบไดอารี่';
+                }
+            }
+        }
+
+        // Display diary entries
+        async function displayDiaryEntries() {
+            if (typeof filterAndDisplayEntries === 'function') {
+                filterAndDisplayEntries();
+            } else {
+                renderDiaries();
+            }
+        }
+
+        // Filter and display entries based on current tab and search
+        function filterAndDisplayEntries() {
+            const activeTabElement = document.querySelector('.nav-link.active');
+            if (!activeTabElement) {
+                renderDiaries();
+                return;
+            }
+
+            const activeTab = activeTabElement.id;
+            const searchTerm = elements.searchInput?.value.toLowerCase() || '';
+            const sortBy = elements.sortBy?.value || 'newest';
+            
+            let filteredEntries = [...diaryEntries];
+            
+            // Filter by tab
+            switch (activeTab) {
+                case 'mine-tab':
+                    filteredEntries = filteredEntries.filter(entry => entry.user_id === currentUser.id);
+                    break;
+                case 'partner-tab':
+                    if (partnerProfile) {
+                        filteredEntries = filteredEntries.filter(entry => entry.user_id === partnerProfile.id);
+                    } else {
+                        filteredEntries = [];
+                    }
+                    break;
+                case 'shared-tab':
+                    filteredEntries = filteredEntries.filter(entry => entry.visibility === 'shared');
+                    break;
+                // 'all-tab' shows all entries, no additional filtering needed
+            }
+            
+            // Filter by search term
+            if (searchTerm) {
+                filteredEntries = filteredEntries.filter(entry => 
+                    (entry.title || '').toLowerCase().includes(searchTerm) ||
+                    (entry.content || '').toLowerCase().includes(searchTerm) ||
+                    (entry.category || '').toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Sort entries
+            filteredEntries.sort((a, b) => {
+                switch (sortBy) {
+                    case 'oldest':
+                        return new Date(a.created_at) - new Date(b.created_at);
+                    case 'title':
+                        return (a.title || '').localeCompare(b.title || '', 'th');
+                    case 'newest':
+                    default:
+                        return new Date(b.created_at) - new Date(a.created_at);
+                }
+            });
+            
+            // Display entries in the active tab
+            const activeContainer = getActiveContainer();
+            if (activeContainer) {
+                displayEntries(filteredEntries, activeContainer);
+            } else {
+                renderDiaries(filteredEntries);
+            }
+        }
+
+        // Get the active tab container
+        function getActiveContainer() {
+            const activeTabElement = document.querySelector('.nav-link.active');
+            if (!activeTabElement) return null;
+
+            const activeTab = activeTabElement.id;
+            
+            switch (activeTab) {
+                case 'mine-tab':
+                    return elements.myDiaryEntries;
+                case 'partner-tab':
+                    return elements.partnerDiaryEntries;
+                case 'shared-tab':
+                    return elements.sharedDiaryEntries;
+                case 'all-tab':
+                default:
+                    return elements.allDiaryEntries;
+            }
+        }
+
+        // Display diary entries in container
+        function displayEntries(entries, container) {
+            if (!container) {
+                renderDiaries(entries);
+                return;
+            }
+
+            if (entries.length === 0) {
+                const activeTabElement = document.querySelector('.nav-link.active');
+                const activeTab = activeTabElement ? activeTabElement.id : 'all-tab';
+                let emptyMessage = {
+                    title: 'ยังไม่มีไดอารี่',
+                    description: 'เริ่มเขียนไดอารี่แรกของคุณกันเถอะ!'
+                };
+                
+                // Customize empty message based on active tab
+                switch (activeTab) {
+                    case 'mine-tab':
+                        emptyMessage = {
+                            title: 'ยังไม่มีไดอารี่ของคุณ',
+                            description: 'เริ่มเขียนไดอารี่แรกของคุณกันเถอะ!'
+                        };
+                        break;
+                    case 'partner-tab':
+                        emptyMessage = {
+                            title: 'ยังไม่มีไดอารี่ของคู่รัก',
+                            description: 'รอคู่รักเขียนไดอารี่สักหน่อยนะ 💕'
+                        };
+                        break;
+                    case 'shared-tab':
+                        emptyMessage = {
+                            title: 'ยังไม่มีไดอารี่ที่แบ่งปัน',
+                            description: 'เขียนไดอารี่และเลือก "แบ่งปันกับคู่รัก" เพื่อให้คู่รักได้อ่านด้วยกัน 💕'
+                        };
+                        break;
+                    default:
+                        emptyMessage = {
+                            title: 'ยังไม่พบข้อมูลไดอารี่',
+                            description: 'เริ่มเขียนไดอารี่แรกของคุณกันเถอะ!'
+                        };
+                }
+                
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-journal-x"></i>
+                        <h4>${emptyMessage.title}</h4>
+                        <p>${emptyMessage.description}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const entriesHtml = entries.map(entry => createEntryHtml(entry)).join('');
+            container.innerHTML = entriesHtml;
+        }
+
+        // Create HTML for a single diary entry
+        function createEntryHtml(entry) {
+            const isOwner = entry.user_id === currentUser.id;
+            const authorName = isOwner ? 'คุณ' : (entry.author?.display_name || 'คู่รัก');
+            const authorInitial = authorName.charAt(0);
+            const entryDate = formatDate(entry.created_at);
+            const categoryName = getCategoryName(entry.category);
+            const visibilityBadge = entry.visibility === 'shared' ? 
+                '<span class="visibility-badge visibility-shared">แบ่งปัน 💕</span>' : 
+                '<span class="visibility-badge visibility-private">ส่วนตัว 🔒</span>';
+            
+            const actionButtons = isOwner ? `
+                <div class="diary-actions">
+                    <button class="btn btn-action btn-edit" onclick="editDiary('${entry.id}')">
+                        <i class="bi bi-pencil"></i> แก้ไข
+                    </button>
+                    <button class="btn btn-action btn-delete" onclick="confirmDeleteDiary('${entry.id}')">
+                        <i class="bi bi-trash"></i> ลบ
+                    </button>
+                </div>
+            ` : '';
+            
+            return `
+                <div class="diary-entry" data-entry-id="${entry.id}">
+                    <div class="diary-meta">
+                        <div class="diary-author">
+                            <div class="author-avatar">${authorInitial}</div>
+                            <span>${authorName}</span>
+                            ${visibilityBadge}
+                        </div>
+                        <div class="diary-date">
+                            <i class="bi bi-calendar3"></i>
+                            ${entryDate}
+                        </div>
+                    </div>
+                    
+                    <div class="diary-title">
+                        <span class="diary-mood">${entry.mood || '📝'}</span>
+                        ${entry.title}
+                    </div>
+                    
+                    <div class="diary-content">
+                        ${(entry.content || '').replace(/\n/g, '<br>')}
+                    </div>
+                    
+                    <div class="diary-tags">
+                        <span class="diary-tag">${categoryName}</span>
+                    </div>
+                    
+                    ${actionButtons}
+                </div>
+            `;
+        }
+
+        // Fallback render function for simpler structure
+        function renderDiaries(entries = diaryEntries) {
+            const container = document.getElementById('diariesContainer');
+            if (!container) return;
+            
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-journal-x display-1 text-muted"></i>
+                        <h3 class="text-muted mt-3">ยังไม่มีไดอารี่</h3>
+                        <p class="text-muted">เริ่มเขียนไดอารี่แรกของคุณกันเลย!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = entries.map(diary => `
+                <div class="diary-entry" data-diary-id="${diary.id}">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="diary-title">${diary.title}</h5>
+                        <div class="diary-actions">
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="editDiary('${diary.id}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteDiary('${diary.id}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="diary-content">${diary.content}</div>
+                    <div class="diary-meta mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar me-1"></i>
+                            ${formatDate(diary.created_at)}
+                            ${diary.mood ? `<i class="bi bi-emoji-smile ms-3 me-1"></i>${diary.mood}` : ''}
+                        </small>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Fallback handlers for simple forms
+        async function handleCreateDiary(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const diaryData = {
+                    title: formData.get('title'),
+                    content: formData.get('content'),
+                    mood: formData.get('mood'),
+                    userId: currentUser.id
+                };
+                
+                await SIMPLE_API.createDiary(diaryData);
+                
+                // Reset form and close modal
+                form.reset();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('createDiaryModal'));
+                if (modal) modal.hide();
+                
+                // Reload diaries
+                await loadDiaryEntries();
+                
+                if (window.utils) {
+                    utils.showAlert('สร้างไดอารี่เรียบร้อย', 'success');
+                } else {
+                    alert('สร้างไดอารี่เรียบร้อย');
+                }
+                
+            } catch (error) {
+                console.error('Create diary error:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถสร้างไดอารี่ได้', 'error');
+                } else {
+                    alert('ไม่สามารถสร้างไดอารี่ได้');
+                }
+            }
+        }
+
+        async function handleUpdateDiary(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const diaryId = formData.get('diaryId');
+                const updateData = {
+                    title: formData.get('title'),
+                    content: formData.get('content'),
+                    mood: formData.get('mood')
+                };
+                
+                await SIMPLE_API.updateDiary(diaryId, updateData);
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editDiaryModal'));
+                if (modal) modal.hide();
+                
+                // Reload diaries
+                await loadDiaryEntries();
+                
+                if (window.utils) {
+                    utils.showAlert('อัปเดตไดอารี่เรียบร้อย', 'success');
+                } else {
+                    alert('อัปเดตไดอารี่เรียบร้อย');
+                }
+                
+            } catch (error) {
+                console.error('Update diary error:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถอัปเดตไดอารี่ได้', 'error');
+                } else {
+                    alert('ไม่สามารถอัปเดตไดอารี่ได้');
+                }
+            }
+        }
+
+        function handleSearch(event) {
+            const searchTerm = event.target.value.toLowerCase();
+            
+            if (!searchTerm) {
+                renderDiaries();
+                return;
+            }
+            
+            // Filter diaries
+            const filteredDiaries = diaryEntries.filter(diary => 
+                (diary.title || '').toLowerCase().includes(searchTerm) ||
+                (diary.content || '').toLowerCase().includes(searchTerm)
+            );
+            
+            renderDiaries(filteredDiaries);
+        }
+
+        // Edit diary entry
+        function editDiary(entryId) {
+            const entry = diaryEntries.find(e => e.id === entryId);
+            if (!entry || entry.user_id !== currentUser.id) {
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถแก้ไขไดอารี่นี้ได้', 'error');
+                } else {
+                    alert('ไม่สามารถแก้ไขไดอารี่นี้ได้');
+                }
+                return;
+            }
+            
+            if (elements.editDiaryId) {
+                // Populate edit form
+                elements.editDiaryId.value = entry.id;
+                elements.editDiaryTitle.value = entry.title;
+                elements.editDiaryContent.value = entry.content;
+                elements.editDiaryMood.value = entry.mood;
+                elements.editDiaryVisibility.value = entry.visibility;
+                elements.editDiaryCategory.value = entry.category;
+                
+                // Update character count
+                elements.editCharCount.textContent = (entry.content || '').length;
+                
+                // Select mood
+                document.querySelectorAll('#editMoodSelector .mood-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                    if (opt.dataset.mood === entry.mood) {
+                        opt.classList.add('selected');
+                    }
+                });
+                
+                // Show modal
+                const modal = new bootstrap.Modal(elements.editDiaryModal);
+                modal.show();
+            } else {
+                // Fallback edit
+                const editId = document.getElementById('editDiaryId');
+                const editTitle = document.getElementById('editTitle');
+                const editContent = document.getElementById('editContent');
+                const editMood = document.getElementById('editMood');
+                
+                if (editId) editId.value = entry.id;
+                if (editTitle) editTitle.value = entry.title;
+                if (editContent) editContent.value = entry.content;
+                if (editMood) editMood.value = entry.mood || '';
+                
+                const modal = new bootstrap.Modal(document.getElementById('editDiaryModal'));
+                modal.show();
+            }
+        }
+
+        // Confirm diary deletion
+        function confirmDeleteDiary(entryId) {
+            const entry = diaryEntries.find(e => e.id === entryId);
+            if (!entry || entry.user_id !== currentUser.id) {
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถลบไดอารี่นี้ได้', 'error');
+                } else {
+                    alert('ไม่สามารถลบไดอารี่นี้ได้');
+                }
+                return;
+            }
+            
+            if (elements.deleteDiaryId) {
+                elements.deleteDiaryId.value = entryId;
+                
+                // Show modal
+                const modal = new bootstrap.Modal(elements.deleteDiaryModal);
+                modal.show();
+            } else {
+                // Fallback delete
+                deleteDiary(entryId);
+            }
+        }
+
+        async function deleteDiary(diaryId) {
+            if (!confirm('คุณต้องการลบไดอารี่นี้ใช่หรือไม่?')) return;
+            
+            try {
+                await SIMPLE_API.deleteDiary(diaryId);
+                await loadDiaryEntries();
+                
+                if (window.utils) {
+                    utils.showAlert('ลบไดอารี่เรียบร้อย', 'success');
+                } else {
+                    alert('ลบไดอารี่เรียบร้อย');
+                }
+                
+            } catch (error) {
+                console.error('Delete diary error:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถลบไดอารี่ได้', 'error');
+                } else {
+                    alert('ไม่สามารถลบไดอารี่ได้');
+                }
+            }
+        }
+
+        // Utility functions
+        function resetDiaryForm() {
+            if (elements.diaryForm) {
+                elements.diaryForm.reset();
+            }
+            if (elements.diaryMood) {
+                elements.diaryMood.value = '';
+            }
+            if (elements.charCount) {
+                elements.charCount.textContent = '0';
+            }
+            document.querySelectorAll('.mood-option:not(#editMoodSelector .mood-option)').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = now - date;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+                return 'วันนี้ ' + date.toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            } else if (diffDays === 1) {
+                return 'เมื่อวาน ' + date.toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            } else {
+                return date.toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+        }
+
+        function getCategoryName(category) {
+            const categories = {
+                'daily': 'ประจำวัน',
+                'love': 'ความรัก',
+                'travel': 'ท่องเที่ยว',
+                'food': 'อาหาร',
+                'work': 'งาน',
+                'other': 'อื่นๆ'
+            };
+            return categories[category] || 'อื่นๆ';
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Navigation functions
+        function showProfile() {
+            if (window.utils) {
+                utils.redirect('settings.html');
+            } else {
+                window.location.href = 'settings.html';
+            }
+        }
+
+        // Logout function
+        async function logout() {
+            let confirmed = false;
+            
+            if (window.utils && typeof utils.showConfirm === 'function') {
+                confirmed = await utils.showConfirm(
+                    '👋 ออกจากระบบ', 
+                    'คุณแน่ใจหรือไม่ที่จะออกจากระบบ?',
+                    'ออกจากระบบ',
+                    'ยกเลิก',
+                    'warning'
+                );
+            } else {
+                confirmed = confirm('คุณแน่ใจหรือไม่ที่จะออกจากระบบ?');
+            }
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                // Clean up PresenceManager before logout
+                if (window.presenceManager) {
+                    window.presenceManager.cleanup();
+                }
+                
+                // Sign out from Supabase
+                if (window.supabase) {
+                    await window.supabase.auth.signOut();
+                }
+                
+                // Clear local storage
+                if (window.utils) {
+                    utils.clearUserSession();
+                    utils.redirect('index.html');
+                } else {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = 'index.html';
+                }
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการออกจากระบบ:', error);
+                if (window.utils) {
+                    utils.showAlert('เกิดข้อผิดพลาดในการออกจากระบบ', 'error');
+                } else {
+                    alert('เกิดข้อผิดพลาดในการออกจากระบบ');
+                }
+            }
+        }
+
+        // Make functions globally available
+        window.editDiary = editDiary;
+        window.confirmDeleteDiary = confirmDeleteDiary;
+        window.deleteDiary = deleteDiary;
+        window.logout = logout;
+        window.showProfile = showProfile;
+
+        console.log('✅ หน้าไดอารี่โหลดเสร็จแล้ว');
+    </script>
 </body>
 </html>

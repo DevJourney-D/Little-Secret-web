@@ -624,11 +624,833 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/config.js"></script>
-    <script src="../js/user-info.js"></script>
+    <script src="../js/simple-api.js"></script>
     <script src="../js/analytics.js"></script>
-    <script src="../js/presence.js"></script>
-    <script src="../js/pomodoro.js"></script>
+    
+    <script>
+        // Pomodoro Timer functionality
+        let currentUser = null;
+        let timerInterval = null;
+        let timeLeft = 25 * 60; // 25 minutes in seconds
+        let isRunning = false;
+        let isBreak = false;
+        let sessionCount = 0;
+        let currentSession = null;
+        let totalTime = 0;
+        let todaySessions = 0;
+        let streak = 0;
+        let currentTask = null;
+        let todoList = [];
+
+        const WORK_TIME = 25 * 60; // 25 minutes
+        const SHORT_BREAK = 5 * 60; // 5 minutes  
+        const LONG_BREAK = 15 * 60; // 15 minutes
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Prevent iOS zoom on input focus
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                document.addEventListener('touchstart', function(event) {
+                    if (event.touches.length > 1) {
+                        event.preventDefault();
+                    }
+                }, { passive: false });
+                let lastTouchEnd = 0;
+                document.addEventListener('touchend', function(event) {
+                    const now = (new Date()).getTime();
+                    if (now - lastTouchEnd <= 300) {
+                        event.preventDefault();
+                    }
+                    lastTouchEnd = now;
+                }, false);
+            }
+
+            try {
+                console.log('⏰ เริ่มต้น Pomodoro...');
+                
+                // Check authentication with fallback support
+                if (window.nekouAuth && nekouAuth.isAuthenticated()) {
+                    currentUser = nekouAuth.getCurrentUser();
+                } else if (window.SIMPLE_API) {
+                    currentUser = SIMPLE_API.getCurrentUser();
+                    if (!currentUser) {
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                } else {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                await initializePomodoro();
+                console.log('✅ Pomodoro เริ่มต้นสำเร็จ');
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการเริ่มต้น Pomodoro:', error);
+                // fallback: แสดง error message
+                document.body.innerHTML = `
+                    <div class="container mt-5">
+                        <div class="alert alert-danger text-center">
+                            <h4>ข้อผิดพลาดในการโหลดหน้า</h4>
+                            <p>ไม่สามารถโหลดหน้า Pomodoro ได้ กรุณาลองรีเฟรชหน้า</p>
+                            <button class="btn btn-primary" onclick="location.reload()">รีเฟรชหน้า</button>
+                            <a href="dashboard.html" class="btn btn-secondary ms-2">กลับหน้าหลัก</a>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        async function initializePomodoro() {
+            try {
+                console.log('🍅 เริ่มต้น Pomodoro Timer...');
+                
+                // Setup UI handlers
+                setupPomodoroUI();
+                
+                // Load user settings and statistics
+                await loadPomodoroStats();
+                
+                // Load todo list
+                await loadTodoList();
+                
+                // Initialize progress ring
+                updateProgressRing();
+                
+                // Update display
+                updateTimerDisplay();
+                updateSessionDisplay();
+                updateCurrentTaskDisplay();
+                
+                console.log('✅ หน้า Pomodoro โหลดเสร็จแล้ว');
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการเริ่มต้น Pomodoro:', error);
+                // Don't redirect, just show error and continue with basic functionality
+                const todoListContainer = document.getElementById('todoList');
+                if (todoListContainer) {
+                    todoListContainer.innerHTML = `
+                        <div class="text-center text-warning py-3">
+                            <i class="bi bi-exclamation-triangle fs-1 mb-2"></i>
+                            <div>ไม่สามารถโหลดข้อมูลได้</div>
+                            <small>คุณยังคงสามารถใช้ Timer ได้</small>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function setupPomodoroUI() {
+            // Setup control buttons
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            
+            if (startBtn) startBtn.addEventListener('click', startTimer);
+            if (pauseBtn) pauseBtn.addEventListener('click', pauseTimer);
+            if (resetBtn) resetBtn.addEventListener('click', resetTimer);
+            
+            // Setup session type buttons (fallback compatibility)
+            const workBtn = document.getElementById('workBtn');
+            const shortBreakBtn = document.getElementById('shortBreakBtn');
+            const longBreakBtn = document.getElementById('longBreakBtn');
+            
+            if (workBtn) workBtn.addEventListener('click', () => switchSessionType('work'));
+            if (shortBreakBtn) shortBreakBtn.addEventListener('click', () => switchSessionType('shortBreak'));
+            if (longBreakBtn) longBreakBtn.addEventListener('click', () => switchSessionType('longBreak'));
+            
+            // Initial display update
+            updateTimerDisplay();
+            updateSessionTypeButtons();
+        }
+
+        function startTimer() {
+            if (!isRunning) {
+                isRunning = true;
+                
+                // Create new session record
+                if (!currentSession) {
+                    createNewSession();
+                }
+                
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    updateProgressRing();
+                    
+                    if (timeLeft <= 0) {
+                        completeSession();
+                    }
+                }, 1000);
+                
+                updateButtonStates();
+                updateTimerStatus();
+            }
+        }
+
+        function pauseTimer() {
+            if (isRunning) {
+                isRunning = false;
+                clearInterval(timerInterval);
+                
+                updateButtonStates();
+                updateTimerStatus();
+            }
+        }
+
+        function resetTimer() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            
+            // Reset to work time
+            isBreak = false;
+            timeLeft = getWorkTime();
+            currentSession = null;
+            
+            updateTimerDisplay();
+            updateProgressRing();
+            updateButtonStates();
+            updateTimerStatus();
+        }
+
+        function completeSession() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            
+            if (!isBreak) {
+                // Completed work session
+                sessionCount++;
+                totalTime += getWorkTime() / 60; // Convert to minutes
+                todaySessions++;
+                
+                // Save session to database
+                saveSession();
+                
+                // Determine break type
+                if (sessionCount % 4 === 0) {
+                    // Long break after 4 work sessions
+                    timeLeft = getLongBreak();
+                    showNotification('🎉 เสร็จแล้ว! ได้เวลาพักยาว ' + (getLongBreak() / 60) + ' นาที');
+                } else {
+                    // Short break
+                    timeLeft = getShortBreak();
+                    showNotification('✅ เสร็จแล้ว! ได้เวลาพักสั้น ' + (getShortBreak() / 60) + ' นาที');
+                }
+                
+                isBreak = true;
+            } else {
+                // Completed break
+                timeLeft = getWorkTime();
+                isBreak = false;
+                showNotification('⏰ หมดเวลาพัก! กลับมาทำงานกันเถอะ');
+            }
+            
+            currentSession = null;
+            updateTimerDisplay();
+            updateProgressRing();
+            updateButtonStates();
+            updateTimerStatus();
+            updateSessionDisplay();
+            updateStatsDisplay();
+        }
+
+        async function createNewSession() {
+            try {
+                const sessionData = {
+                    duration: isBreak ? (isBreak === 'long' ? getLongBreak() / 60 : getShortBreak() / 60) : getWorkTime() / 60,
+                    type: isBreak ? (isBreak === 'long' ? 'long_break' : 'break') : 'work',
+                    task: currentTask ? currentTask.title : null,
+                    category: 'work'
+                };
+                
+                // Try both APIs for compatibility
+                let response;
+                if (window.api && api.pomodoro) {
+                    response = await api.pomodoro.create(currentUser.id, sessionData);
+                } else if (window.SIMPLE_API) {
+                    response = await SIMPLE_API.savePomodoroSession({
+                        userId: currentUser.id,
+                        ...sessionData
+                    });
+                }
+                
+                if (response && response.success) {
+                    currentSession = response.data;
+                    console.log('✅ สร้าง Pomodoro session สำเร็จ');
+                } else {
+                    throw new Error(response?.message || 'ไม่สามารถสร้าง session ได้');
+                }
+                
+            } catch (error) {
+                console.error('Error creating session:', error);
+                // Continue with offline mode
+                currentSession = {
+                    id: Date.now().toString(),
+                    type: isBreak ? 'break' : 'work',
+                    offline: true
+                };
+            }
+        }
+
+        async function saveSession() {
+            if (!currentSession) return;
+            
+            try {
+                if (!currentSession.offline) {
+                    const completionData = {
+                        actualDuration: Math.floor((getWorkTime() - timeLeft) / 60) || 25,
+                        notes: currentTask ? currentTask.title : null
+                    };
+                    
+                    // Try both APIs for compatibility
+                    let response;
+                    if (window.api && api.pomodoro) {
+                        response = await api.pomodoro.complete(currentUser.id, currentSession.id, completionData);
+                    } else if (window.SIMPLE_API) {
+                        // SIMPLE_API already saved during creation
+                        response = { success: true };
+                    }
+                    
+                    if (response && response.success) {
+                        console.log('✅ บันทึก Pomodoro session สำเร็จ');
+                    } else {
+                        console.error('Error saving session:', response?.message);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error saving session:', error);
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Try both possible element IDs
+            const timerDisplay = document.getElementById('timerDisplay') || document.getElementById('timeDisplay');
+            if (timerDisplay) {
+                timerDisplay.textContent = display;
+            }
+            
+            // Update page title
+            document.title = `${display} - ${isBreak ? 'พัก' : 'ทำงาน'} - Neko U`;
+        }
+
+        function updateProgressRing() {
+            const circle = document.getElementById('progressCircle');
+            if (!circle) return;
+            
+            const radius = 80;
+            const circumference = 2 * Math.PI * radius;
+            
+            let totalDuration;
+            if (isBreak) {
+                totalDuration = sessionCount % 4 === 0 ? getLongBreak() : getShortBreak();
+            } else {
+                totalDuration = getWorkTime();
+            }
+            
+            const progress = (totalDuration - timeLeft) / totalDuration;
+            const offset = circumference - (progress * circumference);
+            
+            circle.style.strokeDasharray = circumference;
+            circle.style.strokeDashoffset = offset;
+            
+            // Change color based on session type
+            if (isBreak) {
+                circle.style.stroke = '#4ECDC4';
+            } else {
+                circle.style.stroke = '#FF6B6B';
+            }
+        }
+
+        function updateButtonStates() {
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            
+            if (startBtn) {
+                startBtn.disabled = isRunning;
+                startBtn.style.display = isRunning ? 'none' : 'block';
+            }
+            
+            if (pauseBtn) {
+                pauseBtn.disabled = !isRunning;
+                pauseBtn.style.display = isRunning ? 'block' : 'none';
+            }
+        }
+
+        function updateTimerStatus() {
+            const statusElement = document.getElementById('timerStatus');
+            if (!statusElement) return;
+            
+            if (isRunning) {
+                if (isBreak) {
+                    statusElement.textContent = sessionCount % 4 === 0 ? 'กำลังพักยาว' : 'กำลังพักสั้น';
+                    statusElement.className = 'badge bg-success fs-6';
+                } else {
+                    statusElement.textContent = 'กำลังทำงาน';
+                    statusElement.className = 'badge bg-danger fs-6';
+                }
+            } else {
+                if (isBreak) {
+                    statusElement.textContent = 'พักอยู่ (หยุดชั่วคราว)';
+                    statusElement.className = 'badge bg-warning fs-6';
+                } else {
+                    statusElement.textContent = timeLeft === getWorkTime() ? 'พร้อมเริ่มต้น' : 'หยุดชั่วคราว';
+                    statusElement.className = 'badge bg-primary fs-6';
+                }
+            }
+        }
+
+        function updateSessionDisplay() {
+            const sessionCountEl = document.getElementById('sessionCount');
+            if (sessionCountEl) {
+                sessionCountEl.textContent = sessionCount;
+            }
+        }
+
+        function updateStatsDisplay() {
+            const totalTimeEl = document.getElementById('totalTime') || document.getElementById('todayTotalTime');
+            const todaySessionsEl = document.getElementById('todaySessions') || document.getElementById('todayWorkSessions');
+            const streakEl = document.getElementById('streak');
+            
+            if (totalTimeEl) {
+                const hours = Math.floor(totalTime / 60);
+                const minutes = Math.round(totalTime % 60);
+                totalTimeEl.textContent = hours > 0 ? `${hours}ช ${minutes}น` : `${Math.round(totalTime)}น`;
+            }
+            
+            if (todaySessionsEl) {
+                todaySessionsEl.textContent = todaySessions;
+            }
+            
+            if (streakEl) {
+                streakEl.textContent = streak;
+            }
+            
+            // Update current task display in stats panel
+            const currentTaskElement = document.getElementById('currentTask');
+            if (currentTaskElement) {
+                if (currentTask) {
+                    currentTaskElement.innerHTML = `
+                        <strong>${escapeHtml(currentTask.title)}</strong>
+                        ${currentTask.description ? `<br><small class="text-muted">${escapeHtml(currentTask.description)}</small>` : ''}
+                    `;
+                } else {
+                    currentTaskElement.textContent = 'ยังไม่ได้เลือกงาน';
+                }
+            }
+        }
+
+        function getWorkTime() {
+            const workTimeInput = document.getElementById('workTime');
+            return workTimeInput ? parseInt(workTimeInput.value) * 60 : WORK_TIME;
+        }
+
+        function getShortBreak() {
+            const shortBreakInput = document.getElementById('shortBreak');
+            return shortBreakInput ? parseInt(shortBreakInput.value) * 60 : SHORT_BREAK;
+        }
+
+        function getLongBreak() {
+            const longBreakInput = document.getElementById('longBreak');
+            return longBreakInput ? parseInt(longBreakInput.value) * 60 : LONG_BREAK;
+        }
+
+        function switchSessionType(type) {
+            if (isRunning) {
+                if (!confirm('คุณต้องการหยุดเซสชันปัจจุบันและเปลี่ยนประเภทใช่หรือไม่?')) {
+                    return;
+                }
+                pauseTimer();
+            }
+            
+            // Map session types
+            if (type === 'work') {
+                isBreak = false;
+                timeLeft = getWorkTime();
+            } else if (type === 'shortBreak') {
+                isBreak = true;
+                timeLeft = getShortBreak();
+            } else if (type === 'longBreak') {
+                isBreak = 'long';
+                timeLeft = getLongBreak();
+            }
+            
+            updateTimerDisplay();
+            updateProgressRing();
+            updateSessionTypeButtons();
+            updateTimerStatus();
+        }
+
+        function updateSessionTypeButtons() {
+            const buttons = ['workBtn', 'shortBreakBtn', 'longBreakBtn'];
+            const types = ['work', 'shortBreak', 'longBreak'];
+            
+            buttons.forEach((btnId, index) => {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    const isActive = (types[index] === 'work' && !isBreak) ||
+                                   (types[index] === 'shortBreak' && isBreak === true) ||
+                                   (types[index] === 'longBreak' && isBreak === 'long');
+                    
+                    if (isActive) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                }
+            });
+            
+            // Update session label
+            const sessionLabel = document.getElementById('sessionLabel');
+            if (sessionLabel) {
+                const labels = {
+                    false: 'เซสชันทำงาน',
+                    true: 'พักสั้น',
+                    'long': 'พักยาว'
+                };
+                sessionLabel.textContent = labels[isBreak];
+            }
+        }
+
+        async function loadPomodoroStats() {
+            try {
+                // Set default values first
+                todaySessions = 0;
+                totalTime = 0;
+                streak = 0;
+                
+                if (!currentUser || !currentUser.id) {
+                    console.log('ℹ️ ไม่มีข้อมูลผู้ใช้ ใช้สถิติเริ่มต้น');
+                    updateStatsDisplay();
+                    return;
+                }
+                
+                console.log(`📊 กำลังโหลดสถิติสำหรับ: ${currentUser.displayName || currentUser.username}`);
+                
+                try {
+                    // Try both APIs for loading statistics
+                    let response;
+                    if (window.api && api.pomodoro) {
+                        const today = new Date().toISOString().split('T')[0];
+                        response = await api.pomodoro.getAll(currentUser.id, {
+                            date: today,
+                            status: 'completed'
+                        });
+                    } else if (window.SIMPLE_API) {
+                        const today = new Date().toISOString().split('T')[0];
+                        response = await SIMPLE_API.getPomodoroSessions(currentUser.id, today);
+                    }
+                    
+                    if (response && response.success && response.data) {
+                        const sessions = response.data.sessions || response.data || [];
+                        const stats = response.data.stats || {};
+                        
+                        // Calculate today's statistics
+                        todaySessions = stats.completedToday || sessions.filter(s => s.type === 'work').length;
+                        totalTime = stats.totalMinutes || sessions.reduce((total, s) => total + (s.duration || 25), 0);
+                        streak = 1; // Simple streak for now
+                        
+                        console.log(`📊 สถิติโหลดเสร็จ: วันนี้ ${todaySessions} รอบ, รวม ${totalTime} นาที`);
+                        
+                        // Render session history if available
+                        renderSessionHistory(sessions);
+                    } else {
+                        console.log('⚠️ ไม่สามารถโหลดสถิติได้ ใช้ค่าเริ่มต้น');
+                    }
+                } catch (error) {
+                    console.error('❌ ข้อผิดพลาดในการโหลดสถิติ:', error);
+                }
+                
+                // Update display
+                updateStatsDisplay();
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการโหลดสถิติ Pomodoro:', error);
+                // Use default values on any error
+                todaySessions = 0;
+                totalTime = 0;
+                streak = 0;
+                updateStatsDisplay();
+            }
+        }
+
+        function renderSessionHistory(sessions) {
+            const container = document.getElementById('sessionHistory');
+            if (!container) return;
+            
+            if (sessions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-clock-history"></i>
+                        <p class="mb-0">ยังไม่มีเซสชันวันนี้</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = sessions.map(session => {
+                const icon = session.type === 'work' ? '🍅' : '☕';
+                const label = session.type === 'work' ? 'ทำงาน' : 'พัก';
+                const time = new Date(session.completed_at).toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                return `
+                    <div class="session-item d-flex align-items-center justify-content-between py-2">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2">${icon}</span>
+                            <span>${label}</span>
+                        </div>
+                        <small class="text-muted">${time}</small>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showNotification(message) {
+            // Try using API notification first
+            if (window.SIMPLE_API && SIMPLE_API.showSuccess) {
+                SIMPLE_API.showSuccess(message);
+                return;
+            }
+            
+            // Create toast notification
+            const toast = document.createElement('div');
+            toast.className = 'toast show position-fixed top-0 end-0 m-3';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="toast-header">
+                    <i class="bi bi-stopwatch text-primary me-2"></i>
+                    <strong class="me-auto">Pomodoro</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">${message}</div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
+        // Settings change handlers
+        document.addEventListener('change', (e) => {
+            if (['workTime', 'shortBreak', 'longBreak'].includes(e.target.id)) {
+                if (!isRunning && !isBreak) {
+                    timeLeft = getWorkTime();
+                    updateTimerDisplay();
+                    updateProgressRing();
+                }
+            }
+        });
+
+        // Todo List Management Functions
+        async function loadTodoList() {
+            const todoListContainer = document.getElementById('todoList');
+            
+            try {
+                if (!currentUser || !currentUser.id) {
+                    console.log('ℹ️ ไม่มีข้อมูลผู้ใช้ แสดงข้อความแทน');
+                    todoList = [];
+                    displayEmptyTodoMessage();
+                    return;
+                }
+                
+                console.log('📝 กำลังโหลด Todo list...');
+                
+                // Show loading
+                if (todoListContainer) {
+                    todoListContainer.innerHTML = `
+                        <div class="text-center text-muted py-3">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            กำลังโหลดรายการงาน...
+                        </div>
+                    `;
+                }
+                
+                // Try both APIs for compatibility
+                let response;
+                if (window.api && api.todo) {
+                    response = await api.todo.getAll(currentUser.id, {
+                        status: 'pending'
+                    });
+                } else if (window.SIMPLE_API) {
+                    // Fallback to showing message for SIMPLE_API
+                    displayOfflineTodoMessage();
+                    return;
+                }
+                    
+                if (response && response.success && response.data) {
+                    todoList = response.data.todos || [];
+                    displayTodoList();
+                    
+                    console.log(`✅ โหลด Todo สำเร็จ: ${todoList.length} รายการ`);
+                } else {
+                    throw new Error(response?.message || 'ไม่สามารถโหลด Todo ได้');
+                }
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการโหลด Todo:', error);
+                todoList = [];
+                displayTodoError();
+            }
+        }
+
+        function displayEmptyTodoMessage() {
+            const todoListContainer = document.getElementById('todoList');
+            if (todoListContainer) {
+                todoListContainer.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-person-x fs-1 mb-2"></i>
+                        <div>ไม่มีข้อมูลผู้ใช้</div>
+                        <small>กรุณาล็อกอินเพื่อใช้งาน Todo</small>
+                    </div>
+                `;
+            }
+        }
+
+        function displayOfflineTodoMessage() {
+            const todoListContainer = document.getElementById('todoList');
+            if (todoListContainer) {
+                todoListContainer.innerHTML = `
+                    <div class="text-center text-warning py-3">
+                        <i class="bi bi-wifi-off fs-1 mb-2"></i>
+                        <div>โหมด Offline</div>
+                        <small>ไม่สามารถเชื่อมต่อฐานข้อมูลได้</small>
+                    </div>
+                `;
+            }
+        }
+
+        function displayTodoList() {
+            const todoListContainer = document.getElementById('todoList');
+            if (!todoListContainer) return;
+            
+            if (todoList.length === 0) {
+                todoListContainer.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-list-task fs-1 mb-2"></i>
+                        <div>ไม่มีรายการสิ่งที่ต้องทำ</div>
+                        <small>สร้างงานใหม่หรือไปที่หน้า Todo เพื่อเพิ่มงาน</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            todoListContainer.innerHTML = todoList.map(todo => `
+                <div class="task-item ${currentTask?.id === todo.id ? 'selected' : ''}" 
+                     onclick="selectTask(${JSON.stringify(todo).replace(/"/g, '&quot;')})">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${escapeHtml(todo.title)}</h6>
+                            ${todo.description ? `<small class="text-muted">${escapeHtml(todo.description)}</small>` : ''}
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-${getPriorityColor(todo.priority)} ms-2">${getPriorityText(todo.priority)}</span>
+                            ${todo.category ? `<br><small class="text-muted">${escapeHtml(todo.category)}</small>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayTodoError() {
+            const todoListContainer = document.getElementById('todoList');
+            if (todoListContainer) {
+                todoListContainer.innerHTML = `
+                    <div class="text-center text-danger py-3">
+                        <i class="bi bi-exclamation-triangle fs-1 mb-2"></i>
+                        <div>ไม่สามารถโหลดรายการงานได้</div>
+                        <button class="btn btn-outline-primary btn-sm mt-2" onclick="loadTodoList()">
+                            <i class="bi bi-arrow-clockwise"></i> ลองอีกครั้ง
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function selectTask(todo) {
+            currentTask = todo;
+            displayTodoList(); // Refresh to show selection
+            updateCurrentTaskDisplay();
+        }
+
+        function clearTaskSelection() {
+            currentTask = null;
+            displayTodoList(); // Refresh to clear selection
+            updateCurrentTaskDisplay();
+        }
+
+        function updateCurrentTaskDisplay() {
+            const currentTaskDisplay = document.getElementById('currentTaskDisplay');
+            const currentTaskName = document.getElementById('currentTaskName');
+            
+            if (currentTask) {
+                if (currentTaskDisplay) currentTaskDisplay.style.display = 'block';
+                if (currentTaskName) {
+                    currentTaskName.innerHTML = `
+                        <strong>${escapeHtml(currentTask.title)}</strong>
+                        ${currentTask.description ? `<br><small>${escapeHtml(currentTask.description)}</small>` : ''}
+                    `;
+                }
+            } else {
+                if (currentTaskDisplay) currentTaskDisplay.style.display = 'none';
+            }
+        }
+
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getPriorityColor(priority) {
+            switch (priority) {
+                case 'high': return 'danger';
+                case 'low': return 'secondary';
+                default: return 'primary';
+            }
+        }
+
+        function getPriorityText(priority) {
+            switch (priority) {
+                case 'high': return 'สูง';
+                case 'low': return 'ต่ำ';
+                default: return 'ปกติ';
+            }
+        }
+
+        function playNotificationSound() {
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+T7yocaC0q34+2lVBELSajm9LZnGwdBlN7zzn4oBC1+z/LXfiMG');
+                audio.play().catch(() => {
+                    // Ignore audio play errors
+                });
+            } catch (error) {
+                // Ignore audio errors
+            }
+        }
+        
+        // Navigation functions
+        function goBack() {
+            window.location.href = 'dashboard.html';
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        });
+
+        console.log('✅ หน้า Pomodoro โหลดเสร็จแล้ว');
+    </script>
 </body>
 </html>

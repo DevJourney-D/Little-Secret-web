@@ -592,11 +592,822 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/config.js"></script>
-    <script src="../js/user-info.js"></script>
+    <script src="../js/simple-api.js"></script>
     <script src="../js/analytics.js"></script>
-    <script src="../js/presence.js"></script>
-    <script src="../js/todo.js"></script>
+    
+    <script>
+        // Todo functionality with enhanced features
+        let currentUser = null;
+        let partnerInfo = null;
+        let todos = [];
+        let currentFilter = 'all';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('📝 เริ่มต้น Todo...');
+                
+                // ตรวจสอบการเข้าสู่ระบบ
+                if (window.nekouAuth && await nekouAuth.isAuthenticated()) {
+                    currentUser = nekouAuth.getCurrentUser();
+                } else {
+                    console.log('❌ ไม่ได้เข้าสู่ระบบ');
+                    if (window.utils) {
+                        utils.redirect('index.html');
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                    return;
+                }
+
+                if (!currentUser) {
+                    if (window.utils) {
+                        utils.redirect('index.html');
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                    return;
+                }
+                
+                initializeTodo();
+                await loadAllTodos();
+                updateStatistics();
+                
+                console.log('✅ Todo เริ่มต้นสำเร็จ');
+                
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการเริ่มต้น Todo:', error);
+            }
+        });
+
+        function initializeTodo() {
+            // Initialize form handlers
+            const todoForm = document.getElementById('todoForm');
+            if (todoForm) {
+                todoForm.addEventListener('submit', handleSaveTodo);
+            }
+            
+            // Initialize tab handlers
+            const tabs = document.querySelectorAll('#statusTabs button');
+            tabs.forEach(tab => {
+                tab.addEventListener('shown.bs.tab', handleTabChange);
+            });
+
+            // Fallback form handlers for simple structure
+            const createForm = document.getElementById('createTodoForm');
+            if (createForm) {
+                createForm.addEventListener('submit', handleCreateTodo);
+            }
+            
+            const editForm = document.getElementById('editTodoForm');
+            if (editForm) {
+                editForm.addEventListener('submit', handleUpdateTodo);
+            }
+            
+            // Setup filter buttons
+            const filterButtons = document.querySelectorAll('[data-filter]');
+            filterButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    currentFilter = e.target.dataset.filter;
+                    updateFilterButtons();
+                    renderTodos();
+                });
+            });
+
+            // Update user display
+            updateUserDisplay();
+        }
+
+        function updateUserDisplay() {
+            const userName = document.getElementById('userName');
+            if (userName && currentUser) {
+                userName.textContent = `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.username || 'ผู้ใช้';
+            }
+        }
+
+        async function handleSaveTodo(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('todoTitle')?.value.trim();
+            const description = document.getElementById('todoDescription')?.value.trim();
+            const priority = document.getElementById('todoPriority')?.value;
+            const category = document.getElementById('todoCategory')?.value;
+            const dueDate = document.getElementById('todoDueDate')?.value;
+            const shared = document.getElementById('todoShared')?.checked;
+            
+            // Validation
+            if (!title) {
+                if (window.utils) {
+                    utils.showAlert('กรุณากรอกชื่องาน', 'error');
+                } else {
+                    alert('กรุณากรอกชื่องาน');
+                }
+                return;
+            }
+            
+            const saveBtn = document.getElementById('saveTodoBtn');
+            const originalText = saveBtn?.innerHTML;
+            
+            try {
+                // Show loading
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> กำลังบันทึก...';
+                }
+                
+                const todoData = {
+                    title: title,
+                    description: description,
+                    priority: priority,
+                    category: category,
+                    sharedWithPartner: shared
+                };
+                
+                if (dueDate) {
+                    todoData.dueDate = dueDate;
+                }
+                
+                // Save to API
+                let response;
+                if (window.api && window.api.todo) {
+                    response = await api.todo.create(currentUser.id, todoData);
+                } else {
+                    response = await SIMPLE_API.createTodo({
+                        ...todoData,
+                        userId: currentUser.id
+                    });
+                }
+                
+                if (response.success) {
+                    if (window.utils) {
+                        utils.showAlert('เพิ่มงานสำเร็จ! ✅', 'success');
+                    } else {
+                        alert('เพิ่มงานสำเร็จ! ✅');
+                    }
+                    
+                    // Reset form
+                    document.getElementById('todoForm')?.reset();
+                    
+                    // Reload todos
+                    await loadAllTodos();
+                    updateStatistics();
+                } else {
+                    throw new Error(response.message || 'ไม่สามารถเพิ่มงานได้');
+                }
+                
+            } catch (error) {
+                console.error('Error saving todo:', error);
+                if (window.utils) {
+                    utils.showAlert('เกิดข้อผิดพลาดในการบันทึกงาน', 'error');
+                } else {
+                    alert('เกิดข้อผิดพลาดในการบันทึกงาน');
+                }
+            } finally {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalText;
+                }
+            }
+        }
+
+        async function handleTabChange(e) {
+            const targetTab = e.target.id;
+            
+            switch (targetTab) {
+                case 'all-tab':
+                    renderTodos(todos, 'allTodos');
+                    break;
+                case 'pending-tab':
+                    renderTodos(todos.filter(todo => todo.status === 'pending'), 'pendingTodos');
+                    break;
+                case 'in_progress-tab':
+                    renderTodos(todos.filter(todo => todo.status === 'in_progress'), 'inProgressTodos');
+                    break;
+                case 'completed-tab':
+                    renderTodos(todos.filter(todo => todo.status === 'completed'), 'completedTodos');
+                    break;
+            }
+        }
+
+        async function loadAllTodos() {
+            try {
+                let response;
+                if (window.api && window.api.todo) {
+                    response = await api.todo.getAll(currentUser.id);
+                    
+                    if (response.success && response.data) {
+                        todos = response.data.todos || [];
+                        
+                        // Render initial view (all todos)
+                        renderTodos(todos, 'allTodos');
+                        
+                        console.log(`✅ โหลด Todo สำเร็จ จำนวน ${todos.length} รายการ`);
+                    } else {
+                        throw new Error(response.message || 'ไม่สามารถโหลดข้อมูล Todo ได้');
+                    }
+                } else {
+                    // Fallback to simple API
+                    response = await SIMPLE_API.getTodos(currentUser.id);
+                    todos = response.data || [];
+                    renderTodos();
+                    updateStats();
+                }
+                
+            } catch (error) {
+                console.error('Error loading todos:', error);
+                if (window.utils) {
+                    utils.showAlert('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+                } else {
+                    alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+                }
+            }
+        }
+
+        function renderTodos(todosToRender, containerId) {
+            // Enhanced render for tabbed interface
+            if (todosToRender && containerId) {
+                const container = document.getElementById(containerId);
+                
+                if (!todosToRender || todosToRender.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-list-check"></i>
+                            <h5>ไม่มีรายการงาน</h5>
+                            <p>ยังไม่มีงานในหมวดนี้</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const todosHTML = todosToRender.map(todo => {
+                    const isOwner = todo.user_id === currentUser.id;
+                    const dueStatus = getDueStatus(todo.due_date);
+                    
+                    return `
+                        <div class="todo-item ${todo.status} ${todo.completed ? 'todo-completed' : ''} priority-${todo.priority}">
+                            <div class="todo-header-row">
+                                <div class="flex-grow-1">
+                                    <div class="todo-title">${todo.title}</div>
+                                    ${todo.description ? `<div class="todo-description">${todo.description}</div>` : ''}
+                                </div>
+                                <div class="todo-actions">
+                                    ${isOwner ? `
+                                        ${todo.status === 'pending' ? `
+                                            <button class="btn btn-primary btn-sm" onclick="updateTodoStatus('${todo.id}', 'in_progress')">
+                                                <i class="bi bi-play"></i> เริ่มทำ
+                                            </button>
+                                        ` : ''}
+                                        ${todo.status === 'in_progress' ? `
+                                            <button class="btn btn-success btn-sm" onclick="updateTodoStatus('${todo.id}', 'completed')">
+                                                <i class="bi bi-check"></i> เสร็จ
+                                            </button>
+                                        ` : ''}
+                                        ${todo.status === 'completed' ? `
+                                            <button class="btn btn-warning btn-sm" onclick="updateTodoStatus('${todo.id}', 'pending')">
+                                                <i class="bi bi-arrow-clockwise"></i> ยกเลิก
+                                            </button>
+                                        ` : ''}
+                                        <button class="btn btn-danger btn-sm" onclick="deleteTodo('${todo.id}')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            
+                            <div class="todo-meta">
+                                <div class="todo-badges">
+                                    <span class="status-badge status-${todo.status}">
+                                        ${getStatusText(todo.status)}
+                                    </span>
+                                    <span class="badge bg-secondary">${getCategoryName(todo.category)}</span>
+                                    <span class="badge bg-${getPriorityColor(todo.priority)}">${getPriorityText(todo.priority)}</span>
+                                    ${todo.shared_with_partner ? '<span class="badge bg-pink">💕 แบ่งปัน</span>' : ''}
+                                    ${!isOwner ? '<span class="badge bg-info">คู่รัก</span>' : ''}
+                                </div>
+                                <div class="text-end">
+                                    <div class="small text-muted">
+                                        โดย ${todo.users?.first_name || 'ผู้ใช้'} ${todo.users?.last_name || ''}
+                                    </div>
+                                    ${todo.due_date ? `
+                                        <div class="due-date ${dueStatus.class}">
+                                            <i class="bi bi-calendar"></i> ${dueStatus.text}
+                                        </div>
+                                    ` : ''}
+                                    <div class="small text-muted">
+                                        สร้างเมื่อ ${formatDate(todo.created_at)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                container.innerHTML = todosHTML;
+                return;
+            }
+
+            // Fallback render for simple interface
+            const container = document.getElementById('todosContainer');
+            if (!container) return;
+            
+            let filteredTodos = todos;
+            
+            // Apply filter
+            if (currentFilter === 'completed') {
+                filteredTodos = todos.filter(todo => todo.completed);
+            } else if (currentFilter === 'pending') {
+                filteredTodos = todos.filter(todo => !todo.completed);
+            }
+            
+            if (filteredTodos.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-list-check display-1 text-muted"></i>
+                        <h3 class="text-muted mt-3">ไม่มีรายการงาน</h3>
+                        <p class="text-muted">เพิ่มงานใหม่เพื่อเริ่มต้น!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredTodos.map(todo => `
+                <div class="todo-item ${todo.completed ? 'completed' : ''}" data-todo-id="${todo.id}">
+                    <div class="d-flex align-items-center">
+                        <div class="form-check me-3">
+                            <input class="form-check-input" type="checkbox" ${todo.completed ? 'checked' : ''} 
+                                   onchange="toggleTodo('${todo.id}')" id="todo_${todo.id}">
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="todo-title ${todo.completed ? 'text-decoration-line-through' : ''}">${todo.title}</h6>
+                            ${todo.description ? `<p class="todo-description text-muted mb-1">${todo.description}</p>` : ''}
+                            <div class="todo-meta">
+                                <small class="text-muted">
+                                    ${todo.priority ? `<span class="badge bg-${getPriorityColor(todo.priority)} me-2">${todo.priority}</span>` : ''}
+                                    ${todo.due_date ? `<i class="bi bi-calendar me-1"></i>${formatDate(todo.due_date)}` : ''}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="todo-actions">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editTodo('${todo.id}')" title="แก้ไข">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTodo('${todo.id}')" title="ลบ">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStatistics() {
+            const pending = todos.filter(todo => todo.status === 'pending').length;
+            const inProgress = todos.filter(todo => todo.status === 'in_progress').length;
+            const completed = todos.filter(todo => todo.status === 'completed').length;
+            const total = todos.length;
+            
+            const pendingCountEl = document.getElementById('pendingCount');
+            const inProgressCountEl = document.getElementById('inProgressCount');
+            const completedCountEl = document.getElementById('completedCount');
+            const totalCountEl = document.getElementById('totalCount');
+            
+            if (pendingCountEl) pendingCountEl.textContent = pending;
+            if (inProgressCountEl) inProgressCountEl.textContent = inProgress;
+            if (completedCountEl) completedCountEl.textContent = completed;
+            if (totalCountEl) totalCountEl.textContent = total;
+
+            // Fallback stats update
+            updateStats();
+        }
+
+        async function updateTodoStatus(todoId, newStatus) {
+            try {
+                const updateData = {
+                    status: newStatus,
+                    updated_at: new Date().toISOString()
+                };
+                
+                if (newStatus === 'completed') {
+                    updateData.completed = true;
+                    updateData.completed_at = new Date().toISOString();
+                } else {
+                    updateData.completed = false;
+                    updateData.completed_at = null;
+                }
+                
+                if (window.supabase) {
+                    const { data, error } = await supabase
+                        .from('todos')
+                        .update(updateData)
+                        .eq('id', todoId)
+                        .eq('user_id', currentUser.id);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                } else {
+                    await SIMPLE_API.updateTodo(todoId, updateData);
+                }
+                
+                // Show success message
+                const statusText = getStatusText(newStatus);
+                if (window.utils) {
+                    utils.showAlert(`เปลี่ยนสถานะเป็น "${statusText}" แล้ว!`, 'success');
+                } else {
+                    alert(`เปลี่ยนสถานะเป็น "${statusText}" แล้ว!`);
+                }
+                
+                // Reload todos
+                await loadAllTodos();
+                updateStatistics();
+                
+                // Update current tab view
+                const activeTab = document.querySelector('#statusTabs .nav-link.active');
+                if (activeTab) {
+                    activeTab.click();
+                }
+                
+            } catch (error) {
+                console.error('Error updating todo status:', error);
+                if (window.utils) {
+                    utils.showAlert('เกิดข้อผิดพลาดในการอัปเดตสถานะ', 'error');
+                } else {
+                    alert('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
+                }
+            }
+        }
+
+        async function deleteTodo(todoId) {
+            let confirmed = false;
+            
+            if (window.utils && typeof utils.showConfirm === 'function') {
+                confirmed = await utils.showConfirm(
+                    '🗑️ ลบงาน', 
+                    'คุณแน่ใจหรือไม่ที่จะลบงานนี้? การดำเนินการนี้ไม่สามารถยกเลิกได้',
+                    'ลบเลย',
+                    'ยกเลิก',
+                    'danger'
+                );
+            } else {
+                confirmed = confirm('คุณต้องการลบงานนี้ใช่หรือไม่?');
+            }
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                if (window.supabase) {
+                    const { error } = await supabase
+                        .from('todos')
+                        .delete()
+                        .eq('id', todoId)
+                        .eq('user_id', currentUser.id);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                } else {
+                    await SIMPLE_API.deleteTodo(todoId);
+                }
+                
+                if (window.utils && typeof utils.showToast === 'function') {
+                    utils.showToast('ลบงานเรียบร้อยแล้ว! 🗑️', 'success');
+                } else {
+                    alert('ลบงานเรียบร้อยแล้ว! 🗑️');
+                }
+                
+                // Reload todos
+                await loadAllTodos();
+                updateStatistics();
+                
+                // Update current tab view
+                const activeTab = document.querySelector('#statusTabs .nav-link.active');
+                if (activeTab) {
+                    activeTab.click();
+                }
+                
+            } catch (error) {
+                console.error('Error deleting todo:', error);
+                if (window.utils) {
+                    utils.showAlert('เกิดข้อผิดพลาดในการลบงาน', 'error');
+                } else {
+                    alert('เกิดข้อผิดพลาดในการลบงาน');
+                }
+            }
+        }
+
+        // Fallback handlers for simple forms
+        async function handleCreateTodo(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const todoData = {
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    priority: formData.get('priority'),
+                    due_date: formData.get('due_date'),
+                    userId: currentUser.id
+                };
+                
+                await SIMPLE_API.createTodo(todoData);
+                
+                // Reset form and close modal
+                form.reset();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('createTodoModal'));
+                if (modal) modal.hide();
+                
+                // Reload todos
+                await loadAllTodos();
+                
+                if (window.utils) {
+                    utils.showAlert('สร้างงานเรียบร้อย', 'success');
+                } else {
+                    alert('สร้างงานเรียบร้อย');
+                }
+                
+            } catch (error) {
+                console.error('Create todo error:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถสร้างงานได้', 'error');
+                } else {
+                    alert('ไม่สามารถสร้างงานได้');
+                }
+            }
+        }
+
+        async function editTodo(todoId) {
+            try {
+                const todo = todos.find(t => t.id === todoId);
+                if (!todo) return;
+                
+                // Fill edit form
+                const editId = document.getElementById('editTodoId');
+                const editTitle = document.getElementById('editTitle');
+                const editDescription = document.getElementById('editDescription');
+                const editPriority = document.getElementById('editPriority');
+                const editDueDate = document.getElementById('editDueDate');
+                
+                if (editId) editId.value = todo.id;
+                if (editTitle) editTitle.value = todo.title;
+                if (editDescription) editDescription.value = todo.description || '';
+                if (editPriority) editPriority.value = todo.priority || '';
+                if (editDueDate) editDueDate.value = todo.due_date || '';
+                
+                // Show edit modal
+                const modal = new bootstrap.Modal(document.getElementById('editTodoModal'));
+                modal.show();
+                
+            } catch (error) {
+                console.error('Edit todo error:', error);
+            }
+        }
+
+        async function handleUpdateTodo(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const todoId = formData.get('todoId');
+                const updateData = {
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    priority: formData.get('priority'),
+                    due_date: formData.get('due_date')
+                };
+                
+                await SIMPLE_API.updateTodo(todoId, updateData);
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editTodoModal'));
+                if (modal) modal.hide();
+                
+                // Reload todos
+                await loadAllTodos();
+                
+                if (window.utils) {
+                    utils.showAlert('อัปเดตงานเรียบร้อย', 'success');
+                } else {
+                    alert('อัปเดตงานเรียบร้อย');
+                }
+                
+            } catch (error) {
+                console.error('Update todo error:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถอัปเดตงานได้', 'error');
+                } else {
+                    alert('ไม่สามารถอัปเดตงานได้');
+                }
+            }
+        }
+
+        async function toggleTodo(todoId) {
+            try {
+                const todo = todos.find(t => t.id === todoId);
+                if (!todo) return;
+                
+                await SIMPLE_API.updateTodo(todoId, { completed: !todo.completed });
+                await loadAllTodos();
+                
+            } catch (error) {
+                console.error('Toggle todo error:', error);
+                if (window.utils) {
+                    utils.showAlert('ไม่สามารถอัปเดตสถานะงานได้', 'error');
+                } else {
+                    alert('ไม่สามารถอัปเดตสถานะงานได้');
+                }
+            }
+        }
+
+        function updateFilterButtons() {
+            const buttons = document.querySelectorAll('[data-filter]');
+            buttons.forEach(button => {
+                if (button.dataset.filter === currentFilter) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+        }
+        
+        function updateStats() {
+            const totalTodos = todos.length;
+            const completedTodos = todos.filter(todo => todo.completed).length;
+            const pendingTodos = totalTodos - completedTodos;
+            
+            // Update stat elements
+            const totalEl = document.getElementById('totalTodos');
+            const completedEl = document.getElementById('completedTodos');
+            const pendingEl = document.getElementById('pendingTodos');
+            
+            if (totalEl) totalEl.textContent = totalTodos;
+            if (completedEl) completedEl.textContent = completedTodos;
+            if (pendingEl) pendingEl.textContent = pendingTodos;
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': 'รอดำเนินการ',
+                'in_progress': 'กำลังทำ',
+                'completed': 'เสร็จแล้ว'
+            };
+            return statusMap[status] || status;
+        }
+
+        function getCategoryName(category) {
+            const categories = {
+                'personal': 'ส่วนตัว',
+                'work': 'งาน',
+                'relationship': 'ความสัมพันธ์',
+                'health': 'สุขภาพ',
+                'learning': 'เรียนรู้',
+                'other': 'อื่นๆ'
+            };
+            return categories[category] || 'อื่นๆ';
+        }
+
+        function getPriorityText(priority) {
+            const priorities = {
+                'low': 'ไม่เร่งด่วน',
+                'normal': 'ปกติ',
+                'high': 'สำคัญ'
+            };
+            return priorities[priority] || 'ปกติ';
+        }
+
+        function getPriorityColor(priority) {
+            const colors = {
+                'low': 'success',
+                'normal': 'secondary',
+                'high': 'danger',
+                'medium': 'warning'
+            };
+            return colors[priority] || 'secondary';
+        }
+
+        function getDueStatus(dueDate) {
+            if (!dueDate) {
+                return { text: '', class: '' };
+            }
+            
+            const due = new Date(dueDate);
+            const now = new Date();
+            const diffHours = (due - now) / (1000 * 60 * 60);
+            const diffDays = diffHours / 24;
+            
+            if (diffHours < 0) {
+                return {
+                    text: `เลยกำหนด ${Math.abs(Math.floor(diffDays))} วัน`,
+                    class: 'overdue'
+                };
+            } else if (diffHours < 24) {
+                return {
+                    text: `เหลือ ${Math.floor(diffHours)} ชั่วโมง`,
+                    class: 'due-soon'
+                };
+            } else if (diffDays < 7) {
+                return {
+                    text: `เหลือ ${Math.floor(diffDays)} วัน`,
+                    class: 'due-soon'
+                };
+            } else {
+                return {
+                    text: formatDate(dueDate),
+                    class: ''
+                };
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            
+            if (window.utils && typeof utils.formatDate === 'function') {
+                return utils.formatDate(dateString);
+            }
+            
+            return date.toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Navigation functions
+        function showProfile() {
+            if (window.utils) {
+                utils.redirect('settings.html');
+            } else {
+                window.location.href = 'settings.html';
+            }
+        }
+
+        async function logout() {
+            let confirmed = false;
+            
+            if (window.utils && typeof utils.showConfirm === 'function') {
+                confirmed = await utils.showConfirm(
+                    '👋 ออกจากระบบ', 
+                    'คุณแน่ใจหรือไม่ที่จะออกจากระบบ?',
+                    'ออกจากระบบ',
+                    'ยกเลิก',
+                    'warning'
+                );
+            } else {
+                confirmed = confirm('คุณแน่ใจหรือไม่ที่จะออกจากระบบ?');
+            }
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                if (window.supabase) {
+                    await supabase.auth.signOut();
+                }
+                
+                if (window.utils) {
+                    utils.clearUserSession();
+                    utils.redirect('index.html');
+                } else {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = 'index.html';
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+
+        // Add spinning animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .spinning {
+                animation: spin 1s linear infinite;
+            }
+            .bg-pink {
+                background-color: var(--secondary-color) !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Make functions globally available
+        window.editTodo = editTodo;
+        window.deleteTodo = deleteTodo;
+        window.toggleTodo = toggleTodo;
+        window.updateTodoStatus = updateTodoStatus;
+        window.logout = logout;
+        window.showProfile = showProfile;
+
+        console.log('✅ หน้า Todo โหลดเสร็จแล้ว');
+    </script>
 </body>
 </html>

@@ -8,11 +8,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="../css/navigation.css">
     
-    <!-- Vercel Analytics -->
-    <script>
-        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    </script>
-    <script defer src="/_vercel/insights/script.js"></script>
     <style>
         :root {
             --primary-color: #87CEEB;
@@ -962,11 +957,895 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../js/config.js"></script>
-    <script src="../js/utils.js"></script>
-    <script src="../js/api-functions.js"></script>
-    <script src="../js/auth.js"></script>
-    <script src="../js/analytics.js"></script>
-    <script src="../js/dashboard.js"></script>
+    
+    <script>
+        // Simple API Helper - Inline Version (localStorage)
+        const SIMPLE_API = {
+            baseURL: 'https://little-secret-api.vercel.app',
+
+            // Get authentication token from localStorage
+            getToken() {
+                try {
+                    const token = localStorage.getItem('nekouToken');
+                    
+                    if (!token || token === 'undefined' || token === 'null' || token === '') {
+                        console.log('🔑 No valid token found in localStorage');
+                        return null;
+                    }
+                    
+                    console.log('🔑 Valid token found:', token.substring(0, 20) + '...');
+                    return token;
+                } catch (error) {
+                    console.error('❌ Error reading token from localStorage:', error);
+                    return null;
+                }
+            },
+
+            // Set authentication token in localStorage
+            setToken(token) {
+                try {
+                    if (token) {
+                        localStorage.setItem('nekouToken', token);
+                        console.log('🔑 Token saved to localStorage');
+                    } else {
+                        localStorage.removeItem('nekouToken');
+                        console.log('🔑 Token removed from localStorage');
+                    }
+                } catch (error) {
+                    console.error('❌ Error saving token to localStorage:', error);
+                }
+            },
+
+            // Get current user from localStorage
+            getCurrentUser() {
+                try {
+                    const userStr = localStorage.getItem('nekouUser');
+                    
+                    if (!userStr || userStr === 'undefined' || userStr === 'null' || userStr === '') {
+                        console.log('❌ No valid user data in localStorage');
+                        return null;
+                    }
+                    
+                    const userData = JSON.parse(userStr);
+                    console.log('✅ User data loaded from localStorage:', userData);
+                    return userData;
+                } catch (error) {
+                    console.error('❌ Failed to parse user data from localStorage:', error);
+                    console.log('Raw userStr:', localStorage.getItem('nekouUser'));
+                    return null;
+                }
+            },
+
+            // Set current user data in localStorage
+            setCurrentUser(userData) {
+                try {
+                    if (userData) {
+                        localStorage.setItem('nekouUser', JSON.stringify(userData));
+                        console.log('✅ User data saved to localStorage:', userData);
+                    } else {
+                        localStorage.removeItem('nekouUser');
+                        console.log('🗑️ User data removed from localStorage');
+                    }
+                } catch (error) {
+                    console.error('❌ Error saving user data to localStorage:', error);
+                }
+            },
+
+            // Clear corrupted localStorage data
+            clearCorruptedData() {
+                console.log('🧹 Clearing corrupted localStorage data...');
+                try {
+                    localStorage.removeItem('nekouToken');
+                    localStorage.removeItem('nekouUser');
+                    console.log('🧹 LocalStorage data cleared successfully');
+                } catch (error) {
+                    console.error('❌ Error clearing localStorage:', error);
+                }
+            },
+
+            // Helper function to get data (backward compatibility)
+            getCookie(name) {
+                console.log(`⚠️ getCookie() is deprecated, use localStorage instead for: ${name}`);
+                
+                // Try localStorage first
+                if (name === 'nekouToken') {
+                    return this.getToken();
+                } else if (name === 'nekouUser') {
+                    const user = this.getCurrentUser();
+                    return user ? JSON.stringify(user) : null;
+                }
+                
+                // Fallback to actual cookie for backward compatibility
+                const nameEQ = name + "=";
+                const ca = document.cookie.split(';');
+                for (let i = 0; i < ca.length; i++) {
+                    let c = ca[i];
+                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                    if (c.indexOf(nameEQ) === 0) {
+                        const value = c.substring(nameEQ.length, c.length);
+                        console.log(`🍪 Found in cookie: ${name} = ${value}`);
+                        return decodeURIComponent(value);
+                    }
+                }
+                console.log(`🍪 Not found in cookie: ${name}`);
+                return null;
+            },
+
+            // Helper function to set data (backward compatibility)
+            setCookie(name, value, hours = 24) {
+                console.log(`⚠️ setCookie() is deprecated, use localStorage instead for: ${name}`);
+                
+                // Use localStorage instead
+                if (name === 'nekouToken') {
+                    this.setToken(value);
+                } else if (name === 'nekouUser') {
+                    try {
+                        const userData = typeof value === 'string' ? JSON.parse(value) : value;
+                        this.setCurrentUser(userData);
+                    } catch (error) {
+                        console.error('❌ Error parsing user data for localStorage:', error);
+                    }
+                } else {
+                    // Fallback to actual cookie for other values
+                    const expires = new Date();
+                    expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
+                    const cookieString = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+                    document.cookie = cookieString;
+                    console.log(`🍪 Set cookie: ${name} = ${value}`);
+                }
+            },
+
+            // Update current user data in localStorage
+            updateCurrentUser(userData) {
+                this.setCurrentUser(userData);
+            },
+
+            // Base request function
+            async request(endpoint, options = {}) {
+                const token = this.getToken();
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                };
+
+                const config = {
+                    headers,
+                    mode: 'cors',
+                    credentials: 'omit',
+                    ...options
+                };
+
+                try {
+                    console.log(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
+                    const response = await fetch(`${this.baseURL}${endpoint}`, config);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log(`✅ API Response:`, data);
+                    return data;
+                } catch (error) {
+                    console.error(`❌ API Error:`, error);
+                    throw error;
+                }
+            },
+
+            // Authentication methods
+            async login(email, password) {
+                return this.request('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+            },
+
+            async register(userData) {
+                return this.request('/api/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify(userData)
+                });
+            },
+
+            logout() {
+                console.log('🚪 Logging out user...');
+                this.clearCorruptedData();
+                
+                // Also clear any remaining cookies for good measure
+                const cookiesToClear = ['nekouToken', 'nekouUser'];
+                cookiesToClear.forEach(cookieName => {
+                    document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+                    document.cookie = `${cookieName}=;max-age=0;path=/;`;
+                    console.log(`🗑️ Cleared cookie: ${cookieName}`);
+                });
+                
+                // Verify data is cleared
+                setTimeout(() => {
+                    const remainingToken = this.getToken();
+                    const remainingUser = this.getCurrentUser();
+                    
+                    if (remainingToken || remainingUser) {
+                        console.warn('⚠️ Some data may not have been cleared properly');
+                    } else {
+                        console.log('✅ All authentication data cleared');
+                    }
+                    
+                    window.location.href = 'index.html';
+                }, 100);
+            },
+
+            // User methods
+            async getUser(userId) {
+                return this.request(`/api/users/${userId}`);
+            },
+
+            async updateUser(userId, userData) {
+                return this.request(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(userData)
+                });
+            },
+
+            // Dashboard method
+            async getDashboard(userId) {
+                return this.request(`/api/dashboard/${userId}`);
+            },
+
+            // Diary methods
+            async getDiaries(userId, page = 1, limit = 10) {
+                return this.request(`/api/diaries?userId=${userId}&page=${page}&limit=${limit}`);
+            },
+
+            async createDiary(diaryData) {
+                return this.request('/api/diaries', {
+                    method: 'POST',
+                    body: JSON.stringify(diaryData)
+                });
+            },
+
+            // Todo methods
+            async getTodos(userId) {
+                return this.request(`/api/todos?userId=${userId}`);
+            },
+
+            async createTodo(todoData) {
+                return this.request('/api/todos', {
+                    method: 'POST',
+                    body: JSON.stringify(todoData)
+                });
+            },
+
+            // Chat methods
+            async getChats(userId, partnerId) {
+                return this.request(`/api/chats?userId=${userId}&partnerId=${partnerId}`);
+            },
+
+            async sendMessage(messageData) {
+                return this.request('/api/chats', {
+                    method: 'POST',
+                    body: JSON.stringify(messageData)
+                });
+            },
+
+            // Partner methods
+            async connectPartner(userId, partnerCode) {
+                return this.request(`/api/users/${userId}/connect-partner`, {
+                    method: 'POST',
+                    body: JSON.stringify({ partnerCode })
+                });
+            },
+
+            async disconnectPartner(userId) {
+                return this.request(`/api/users/${userId}/disconnect-partner`, {
+                    method: 'POST'
+                });
+            },
+
+            // UI helpers
+            showError(message) {
+                // Create toast-like notification
+                const toast = document.createElement('div');
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #dc3545;
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 10px;
+                    z-index: 9999;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideIn 0.3s ease;
+                `;
+                toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
+                
+                // Add animation
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    toast.remove();
+                    style.remove();
+                }, 5000);
+            },
+
+            showSuccess(message) {
+                const toast = document.createElement('div');
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 10px;
+                    z-index: 9999;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                `;
+                toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
+                
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+        };
+
+        // Function to fetch fresh user data from API and update cookies
+        async function fetchAndUpdateUserData() {
+            try {
+                console.log('🔄 Fetching fresh user data from API...');
+                const token = SIMPLE_API.getToken();
+                if (!token) {
+                    console.log('❌ No token found, redirecting to login');
+                    window.location.href = 'index.html';
+                    return null;
+                }
+
+                // Get current user from cookie first
+                let user = SIMPLE_API.getCurrentUser();
+                if (!user || !user.id) {
+                    console.log('❌ No user ID found in cookie');
+                    window.location.href = 'index.html';
+                    return null;
+                }
+
+                console.log('📋 Attempting to fetch user data for ID:', user.id);
+                
+                // Test API connectivity first
+                try {
+                    const testResponse = await fetch(`${SIMPLE_API.baseURL}/api/health`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    console.log('🏥 API Health check:', testResponse.status);
+                } catch (healthError) {
+                    console.log('⚠️ API health check failed:', healthError.message);
+                }
+
+                // Fetch fresh data from API
+                const response = await SIMPLE_API.getUser(user.id);
+                console.log('📊 API Response for user data:', response);
+                
+                if (response && response.success && response.user) {
+                    console.log('✅ Fresh user data received:', response.user);
+                    
+                    // Update cookie with fresh data
+                    SIMPLE_API.updateCurrentUser(response.user);
+                    console.log('✅ Cookie updated with fresh data');
+                    
+                    return response.user;
+                } else if (response && response.user) {
+                    // Some APIs might not use 'success' flag
+                    console.log('✅ User data received (alternative format):', response.user);
+                    SIMPLE_API.updateCurrentUser(response.user);
+                    return response.user;
+                } else {
+                    console.log('❌ Failed to fetch user data:', response);
+                    console.log('📋 Using cached user data as fallback');
+                    return user; // Return cached data as fallback
+                }
+            } catch (error) {
+                console.error('❌ Error fetching user data:', error);
+                console.log('📋 Using cached user data as fallback');
+                return SIMPLE_API.getCurrentUser(); // Return cached data as fallback
+            }
+        }
+
+        // Dashboard functionality
+        let currentUser = null;
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                console.log('🚀 Starting dashboard initialization...');
+                
+                // Inspect localStorage authentication state first
+                console.log('🔍 Initial localStorage auth state:');
+                inspectAuthState();
+                
+                // First, run comprehensive authentication check
+                console.log('🔍 Running authentication verification...');
+                if (typeof checkAuthenticationStatus === 'function') {
+                    const authResult = checkAuthenticationStatus();
+                    if (!authResult) {
+                        console.log('❌ Authentication check failed');
+                        
+                        // Check if we have any data to work with
+                        const token = SIMPLE_API.getToken();
+                        const user = SIMPLE_API.getCurrentUser();
+                        
+                        if (!token && !user) {
+                            console.log('💡 No authentication data found - redirecting to login');
+                            setTimeout(() => {
+                                window.location.href = 'index.html';
+                            }, 2000);
+                        }
+                        return;
+                    }
+                }
+                
+                // Fetch fresh user data from API
+                currentUser = await fetchAndUpdateUserData();
+                console.log('📋 Current user after fetch:', currentUser);
+                
+                if (!currentUser) {
+                    console.log('❌ No user found, redirecting to login');
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                console.log('🔄 Updating dashboard with fresh user data...');
+                // Update user info
+                updateUserInfo();
+                
+                // Load dashboard data
+                await loadDashboardData();
+                
+                // Set up periodic authentication check
+                setInterval(() => {
+                    const token = SIMPLE_API.getToken();
+                    const user = SIMPLE_API.getCurrentUser();
+                    if (!token || !user) {
+                        console.log('❌ Authentication lost during session, redirecting...');
+                        SIMPLE_API.showError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+                        setTimeout(() => {
+                            window.location.href = 'index.html';
+                        }, 2000);
+                    }
+                }, 30000); // Check every 30 seconds
+                
+            } catch (error) {
+                console.error('❌ Dashboard initialization error:', error);
+                SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+            }
+        });
+        
+        function updateUserInfo() {
+            console.log('🔄 Updating user info with:', currentUser);
+            
+            if (!currentUser) {
+                console.log('❌ No currentUser data available');
+                return;
+            }
+            
+            // Update navigation bar username
+            const userNameSpans = document.querySelectorAll('#userName');
+            userNameSpans.forEach(span => {
+                if (span) {
+                    const displayName = currentUser.displayName || currentUser.firstName || currentUser.username || 'ผู้ใช้งาน';
+                    span.textContent = displayName;
+                    console.log(`✅ Updated userName to: ${displayName}`);
+                }
+            });
+            
+            // Update welcome section
+            const greetingTimeEl = document.getElementById('greetingTime');
+            if (greetingTimeEl) {
+                const hour = new Date().getHours();
+                let greeting = 'สวัสดี';
+                if (hour < 12) greeting = 'สวัสดีตอนเช้า';
+                else if (hour < 17) greeting = 'สวัสดีตอนบ่าย';
+                else greeting = 'สวัสดีตอนเย็น';
+                
+                greetingTimeEl.textContent = greeting;
+                console.log(`✅ Set greeting to: ${greeting}`);
+            }
+            
+            // Update current date
+            const currentDateEl = document.getElementById('currentDate');
+            if (currentDateEl) {
+                const today = new Date().toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                currentDateEl.textContent = today;
+                console.log(`✅ Set current date to: ${today}`);
+            }
+            
+            // Update partner code
+            const myPartnerCodeEl = document.getElementById('myPartnerCode');
+            if (myPartnerCodeEl && currentUser.partnerCode) {
+                myPartnerCodeEl.textContent = currentUser.partnerCode;
+                console.log(`✅ Set partner code to: ${currentUser.partnerCode}`);
+            }
+            
+            console.log('✅ User info update completed');
+        }
+        
+        async function loadDashboardData() {
+            try {
+                console.log('🔄 Loading dashboard data...');
+                
+                // Show loading state
+                showLoadingState();
+                
+                const dashboardData = await SIMPLE_API.getDashboard(currentUser.id);
+                console.log('📊 Dashboard data received:', dashboardData);
+                
+                // Update dashboard stats
+                if (dashboardData && dashboardData.success) {
+                    updateDashboardStats(dashboardData.data);
+                } else {
+                    console.log('⚠️ No dashboard data, showing basic stats');
+                    updateBasicStats();
+                }
+                
+            } catch (error) {
+                console.error('❌ Dashboard data loading error:', error);
+                // Show basic info even if API fails
+                updateBasicStats();
+                SIMPLE_API.showError('ไม่สามารถโหลดข้อมูลสถิติได้ แสดงข้อมูลพื้นฐาน');
+            }
+        }
+        
+        function showLoadingState() {
+            const loadingElements = document.querySelectorAll('.loading-placeholder');
+            loadingElements.forEach(el => {
+                el.innerHTML = '<i class="bi bi-hourglass-split spinning"></i>';
+            });
+        }
+        
+        function updateDashboardStats(data) {
+            console.log('📊 Updating dashboard stats with:', data);
+            
+            // Update main stats
+            updateStatElement('diaryCount', data?.diaries?.total || 0);
+            updateStatElement('todoCount', data?.todos?.pending || 0);
+            updateStatElement('chatCount', data?.chats?.sent || 0);
+            updateStatElement('mathAccuracy', data?.math?.accuracy ? `${data.math.accuracy}%` : '0%');
+            updateStatElement('pomodoroSessions', data?.pomodoro?.sessions || 0);
+            
+            // Calculate days since registration
+            let daysSinceJoin = 0;
+            if (currentUser.created_at || currentUser.createdAt) {
+                const joinDate = new Date(currentUser.created_at || currentUser.createdAt);
+                const today = new Date();
+                daysSinceJoin = Math.floor((today - joinDate) / (1000 * 60 * 60 * 24));
+            }
+            updateStatElement('daysTogether', daysSinceJoin);
+            
+            // Update additional stats
+            updateStatElement('totalMathProblems', data?.math?.total || 0);
+            updateStatElement('pomodoroHours', data?.pomodoro?.hours ? `${data.pomodoro.hours}ชม` : '0ชม');
+            updateStatElement('completedTodos', data?.todos?.completed || 0);
+            updateStatElement('partnerChatCount', data?.chats?.received || 0);
+            
+            // Update partner info
+            updatePartnerInfo(data?.partner);
+            
+            console.log('✅ Dashboard stats updated');
+        }
+        
+        function updateStatElement(elementId, value) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                const loadingPlaceholder = element.querySelector('.loading-placeholder');
+                if (loadingPlaceholder) {
+                    loadingPlaceholder.textContent = value;
+                    loadingPlaceholder.classList.remove('loading-placeholder');
+                } else {
+                    element.textContent = value;
+                }
+                console.log(`✅ Updated ${elementId} to: ${value}`);
+            }
+        }
+        
+        function updatePartnerInfo(partnerData) {
+            const partnerNameHeaderEl = document.getElementById('partnerNameHeader');
+            const partnerStatusHeaderEl = document.getElementById('partnerStatusHeader');
+            const partnerInfoCard = document.getElementById('partnerInfoCard');
+            const pairingCard = document.getElementById('pairingCard');
+            
+            if (currentUser.partner || partnerData) {
+                // User has a partner
+                const partnerName = currentUser.partner?.displayName || partnerData?.displayName || 'คู่รัก';
+                
+                if (partnerNameHeaderEl) {
+                    partnerNameHeaderEl.textContent = partnerName;
+                }
+                
+                if (partnerStatusHeaderEl) {
+                    partnerStatusHeaderEl.innerHTML = `
+                        <i class="bi bi-circle-fill me-1"></i>
+                        ออนไลน์
+                    `;
+                    partnerStatusHeaderEl.className = 'partner-status online';
+                }
+                
+                if (partnerInfoCard) partnerInfoCard.style.display = 'block';
+                if (pairingCard) pairingCard.style.display = 'none';
+                
+                console.log(`✅ Updated partner info for: ${partnerName}`);
+            } else {
+                // No partner
+                if (partnerNameHeaderEl) {
+                    partnerNameHeaderEl.textContent = 'ยังไม่มี';
+                }
+                
+                if (partnerStatusHeaderEl) {
+                    partnerStatusHeaderEl.innerHTML = `
+                        <i class="bi bi-circle-fill me-1"></i>
+                        ออฟไลน์
+                    `;
+                    partnerStatusHeaderEl.className = 'partner-status offline';
+                }
+                
+                if (partnerInfoCard) partnerInfoCard.style.display = 'none';
+                if (pairingCard) pairingCard.style.display = 'block';
+                
+                console.log('✅ Updated partner info: No partner');
+            }
+        }
+        
+        function updateBasicStats() {
+            console.log('📊 Updating basic stats (fallback)');
+            
+            // Show basic stats when API fails
+            updateStatElement('diaryCount', '-');
+            updateStatElement('todoCount', '-');
+            updateStatElement('chatCount', '-');
+            updateStatElement('mathAccuracy', '-');
+            updateStatElement('pomodoroSessions', '-');
+            updateStatElement('daysTogether', '-');
+            updateStatElement('totalMathProblems', '-');
+            updateStatElement('pomodoroHours', '-');
+            updateStatElement('completedTodos', '-');
+            updateStatElement('partnerChatCount', '-');
+            
+            // Update partner info with no data
+            updatePartnerInfo(null);
+        }
+        
+        // Copy partner code function
+        function copyPartnerCode() {
+            const partnerCodeEl = document.getElementById('myPartnerCode');
+            if (partnerCodeEl && partnerCodeEl.textContent !== '------') {
+                navigator.clipboard.writeText(partnerCodeEl.textContent).then(() => {
+                    SIMPLE_API.showSuccess('คัดลอกรหัสเรียบร้อยแล้ว!');
+                }).catch(() => {
+                    SIMPLE_API.showError('ไม่สามารถคัดลอกรหัสได้');
+                });
+            }
+        }
+        
+        // Partner pairing functionality
+        async function handlePartnerPairing(event) {
+            event.preventDefault();
+            
+            const partnerCodeInput = document.getElementById('partnerCodeInput');
+            const partnerCode = partnerCodeInput.value.trim().toUpperCase();
+            
+            if (!partnerCode) {
+                SIMPLE_API.showError('กรุณากรอกรหัสคู่รัก');
+                return;
+            }
+            
+            try {
+                console.log('🔗 Attempting to connect partner with code:', partnerCode);
+                const response = await SIMPLE_API.connectPartner(currentUser.id, partnerCode);
+                
+                if (response.success) {
+                    SIMPLE_API.showSuccess('เชื่อมต่อกับคู่รักเรียบร้อยแล้ว!');
+                    
+                    // Update user data and reload dashboard
+                    currentUser = await fetchAndUpdateUserData();
+                    await loadDashboardData();
+                    updateUserInfo();
+                } else {
+                    SIMPLE_API.showError(response.message || 'ไม่สามารถเชื่อมต่อกับคู่รักได้');
+                }
+            } catch (error) {
+                console.error('❌ Partner connection error:', error);
+                SIMPLE_API.showError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            }
+        }
+        
+        // Confirm unpairing partner
+        function confirmUnpairPartner() {
+            if (confirm('คุณต้องการยกเลิกการจับคู่กับคู่รักหรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) {
+                unpairPartner();
+            }
+        }
+        
+        // Unpair partner
+        async function unpairPartner() {
+            try {
+                console.log('💔 Disconnecting partner...');
+                const response = await SIMPLE_API.disconnectPartner(currentUser.id);
+                
+                if (response.success) {
+                    SIMPLE_API.showSuccess('ยกเลิกการจับคู่เรียบร้อยแล้ว');
+                    
+                    // Update user data and reload dashboard
+                    currentUser = await fetchAndUpdateUserData();
+                    await loadDashboardData();
+                    updateUserInfo();
+                } else {
+                    SIMPLE_API.showError(response.message || 'ไม่สามารถยกเลิกการจับคู่ได้');
+                }
+            } catch (error) {
+                console.error('❌ Partner disconnection error:', error);
+                SIMPLE_API.showError('เกิดข้อผิดพลาดในการยกเลิกการจับคู่');
+            }
+        }
+        
+        // Dashboard refresh functions
+        const dashboardFunctions = {
+            async refreshStats() {
+                console.log('🔄 Refreshing stats...');
+                await loadDashboardData();
+                SIMPLE_API.showSuccess('รีเฟรชสถิติเรียบร้อย');
+            },
+            
+            async refreshDashboard() {
+                console.log('🔄 Refreshing entire dashboard...');
+                currentUser = await fetchAndUpdateUserData();
+                updateUserInfo();
+                await loadDashboardData();
+                SIMPLE_API.showSuccess('รีเฟรชแดชบอร์ดเรียบร้อย');
+            }
+        };
+        
+        // Setup event listeners when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Partner pairing form
+            const pairingForm = document.getElementById('pairingForm');
+            if (pairingForm) {
+                pairingForm.addEventListener('submit', handlePartnerPairing);
+            }
+            
+            // Partner code input formatting
+            const partnerCodeInput = document.getElementById('partnerCodeInput');
+            if (partnerCodeInput) {
+                partnerCodeInput.addEventListener('input', function(e) {
+                    // Convert to uppercase and limit to 8 characters
+                    e.target.value = e.target.value.toUpperCase().slice(0, 8);
+                });
+            }
+        });
+        
+        // Development helper functions (same as settings page)
+        function simulateLogin() {
+            console.log('🧪 Simulating login for development testing...');
+            
+            const mockUser = {
+                id: 'test-user-123',
+                username: 'testuser',
+                email: 'test@example.com',
+                displayName: 'Test User',
+                createdAt: new Date().toISOString(),
+                partner: null
+            };
+            
+            const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItMTIzIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTYxNjIzOTAyMn0.test-signature';
+            
+            SIMPLE_API.setToken(mockToken);
+            SIMPLE_API.setCurrentUser(mockUser);
+            
+            console.log('✅ Mock login data saved to localStorage');
+            console.log('🔄 Reloading page to test authentication...');
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+
+        function inspectAuthState() {
+            console.log('🔍 === CURRENT AUTH STATE INSPECTION ===');
+            
+            console.log('💾 localStorage:');
+            console.log('  - nekouToken:', localStorage.getItem('nekouToken') || 'not found');
+            console.log('  - nekouUser:', localStorage.getItem('nekouUser') || 'not found');
+            
+            console.log('🔧 SIMPLE_API methods:');
+            console.log('  - getToken():', SIMPLE_API.getToken());
+            console.log('  - getCurrentUser():', SIMPLE_API.getCurrentUser());
+            
+            if (typeof checkAuthenticationStatus === 'function') {
+                console.log('🔍 Auth check result:', checkAuthenticationStatus());
+            }
+        }
+
+        // Make dev functions globally available
+        window.simulateLogin = simulateLogin;
+        window.inspectAuthState = inspectAuthState;
+
+        // Make functions globally available
+        window.copyPartnerCode = copyPartnerCode;
+        window.confirmUnpairPartner = confirmUnpairPartner;
+        window.dashboardFunctions = dashboardFunctions;
+        
+        // Navigation functions with auth check
+        function navigateWithAuthCheck(url) {
+            const token = SIMPLE_API.getToken();
+            const user = SIMPLE_API.getCurrentUser();
+            
+            if (!token || !user) {
+                console.log('❌ Authentication lost, redirecting to login');
+                SIMPLE_API.showError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                return;
+            }
+            
+            window.location.href = url;
+        }
+        
+        function goToDiary() {
+            navigateWithAuthCheck('diary.html');
+        }
+        
+        function goToTodo() {
+            navigateWithAuthCheck('todo.html');
+        }
+        
+        function goToChat() {
+            navigateWithAuthCheck('chat.html');
+        }
+        
+        function goToPomodoro() {
+            navigateWithAuthCheck('pomodoro.html');
+        }
+        
+        function goToMath() {
+            navigateWithAuthCheck('math.html');
+        }
+        
+        function goToNekoChat() {
+            navigateWithAuthCheck('neko-chat.html');
+        }
+        
+        function goToProfile() {
+            navigateWithAuthCheck('user-info.html');
+        }
+        
+        function goToSettings() {
+            navigateWithAuthCheck('settings.html');
+        }
+        
+        function logout() {
+            if (confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
+                SIMPLE_API.logout();
+            }
+        }
+        
+        // Refresh dashboard data
+        async function refreshData() {
+            await loadDashboardData();
+            SIMPLE_API.showSuccess('รีเฟรชข้อมูลเรียบร้อย');
+        }
+    </script>
+
+    <!-- Authentication Check Script -->
+    <script src="auth-check.js"></script>
 </body>
 </html>

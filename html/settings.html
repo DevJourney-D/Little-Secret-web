@@ -9,12 +9,6 @@
     <link rel="stylesheet" href="../css/navigation.css">
     <link rel="stylesheet" href="../css/style.css">
     
-    <!-- Vercel Analytics -->
-    <script>
-        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    </script>
-    <script defer src="/_vercel/insights/script.js"></script>
-    
     <style>
         :root {
             --primary-color: #FF69B4;
@@ -357,10 +351,16 @@
                         </div>
                     </div>
                     <div class="col-md-6 user-info">
-                        <h3 id="userDisplayName">กำลังโหลด...</h3>
+                        <h3 id="userDisplayName">กำลังโหลดข้อมูล...</h3>
                         <p><i class="bi bi-envelope me-2"></i><span id="userEmail">กำลังโหลด...</span></p>
                         <p><i class="bi bi-person me-2"></i><span id="userUsername">กำลังโหลด...</span></p>
                         <p><i class="bi bi-calendar me-2"></i>เข้าร่วมเมื่อ <span id="userJoinDate">กำลังโหลด...</span></p>
+                        <div id="loadingStatus" class="alert alert-info mt-2" style="display: none;">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                <span>กำลังโหลดข้อมูลจากเซิร์ฟเวอร์...</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-3 text-center">
                         <div id="partnershipStatus" class="mb-3">
@@ -694,6 +694,56 @@
 
             <!-- Sidebar -->
             <div class="col-lg-4">
+                <!-- App Navigation -->
+                <div class="card settings-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-grid-3x3-gap me-2"></i>
+                            จัดการแอปพลิเคชัน
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info w-100 btn-sm" onclick="navigateToPage('chat.html')">
+                                    <i class="bi bi-chat-dots d-block"></i>
+                                    <small>แชท</small>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info w-100 btn-sm" onclick="navigateToPage('neko-chat.html')">
+                                    <i class="bi bi-robot d-block"></i>
+                                    <small>Neko AI</small>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info w-100 btn-sm" onclick="navigateToPage('diary.html')">
+                                    <i class="bi bi-journal-text d-block"></i>
+                                    <small>ไดอารี่</small>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info w-100 btn-sm" onclick="navigateToPage('todo.html')">
+                                    <i class="bi bi-list-check d-block"></i>
+                                    <small>Todo</small>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info w-100 btn-sm" onclick="navigateToPage('pomodoro.html')">
+                                    <i class="bi bi-stopwatch d-block"></i>
+                                    <small>Pomodoro</small>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info w-100 btn-sm" onclick="navigateToPage('math.html')">
+                                    <i class="bi bi-calculator d-block"></i>
+                                    <small>Math</small>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Partner Information -->
                 <div class="card settings-card">
                     <div class="card-header">
@@ -769,14 +819,2763 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="auth-check.js"></script>
     
-    <!-- Core dependencies - loaded in order -->
-    <script src="../js/config.js"></script>
-    <script src="../js/utils.js"></script>
-    <script src="../js/api-functions.js"></script>
-    <script src="../js/auth.js"></script>
+    <script>
+        // Simple API Helper - Inline Version
+        const SIMPLE_API = {
+            baseURL: 'https://little-secret-api.vercel.app',
+
+            // Get authentication token from localStorage
+            getToken() {
+                try {
+                    const token = localStorage.getItem('nekouToken');
+                    
+                    if (!token || token === 'undefined' || token === 'null' || token === '') {
+                        console.log('🔑 No valid token found in localStorage');
+                        return null;
+                    }
+                    
+                    console.log('🔑 Valid token found:', token.substring(0, 20) + '...');
+                    return token;
+                } catch (error) {
+                    console.error('❌ Error reading token from localStorage:', error);
+                    return null;
+                }
+            },
+
+            // Set authentication token in localStorage
+            setToken(token) {
+                try {
+                    if (token) {
+                        localStorage.setItem('nekouToken', token);
+                        console.log('🔑 Token saved to localStorage');
+                    } else {
+                        localStorage.removeItem('nekouToken');
+                        console.log('🔑 Token removed from localStorage');
+                    }
+                } catch (error) {
+                    console.error('❌ Error saving token to localStorage:', error);
+                }
+            },
+
+            // Get current user from localStorage
+            getCurrentUser() {
+                try {
+                    const userStr = localStorage.getItem('nekouUser');
+                    
+                    if (!userStr || userStr === 'undefined' || userStr === 'null' || userStr === '') {
+                        console.log('❌ No valid user data in localStorage');
+                        return null;
+                    }
+                    
+                    const userData = JSON.parse(userStr);
+                    console.log('✅ User data loaded from localStorage:', userData);
+                    return userData;
+                } catch (error) {
+                    console.error('❌ Failed to parse user data from localStorage:', error);
+                    console.log('Raw userStr:', localStorage.getItem('nekouUser'));
+                    return null;
+                }
+            },
+
+            // Set current user data in localStorage
+            setCurrentUser(userData) {
+                try {
+                    if (userData) {
+                        localStorage.setItem('nekouUser', JSON.stringify(userData));
+                        console.log('✅ User data saved to localStorage:', userData);
+                    } else {
+                        localStorage.removeItem('nekouUser');
+                        console.log('🗑️ User data removed from localStorage');
+                    }
+                } catch (error) {
+                    console.error('❌ Error saving user data to localStorage:', error);
+                }
+            },
+
+            // Clear corrupted localStorage data
+            clearCorruptedData() {
+                console.log('🧹 Clearing corrupted localStorage data...');
+                try {
+                    localStorage.removeItem('nekouToken');
+                    localStorage.removeItem('nekouUser');
+                    console.log('🧹 LocalStorage data cleared successfully');
+                } catch (error) {
+                    console.error('❌ Error clearing localStorage:', error);
+                }
+            },
+
+            // Get user by ID
+            async getUser(userId) {
+                return this.request(`/api/users/${userId}`, {
+                    method: 'GET'
+                });
+            },
+
+            // Helper function to get data from localStorage (deprecated - for backward compatibility)
+            getCookie(name) {
+                console.log(`⚠️ getCookie() is deprecated, use localStorage instead for: ${name}`);
+                
+                // Try localStorage first
+                if (name === 'nekouToken') {
+                    return this.getToken();
+                } else if (name === 'nekouUser') {
+                    const user = this.getCurrentUser();
+                    return user ? JSON.stringify(user) : null;
+                }
+                
+                // Fallback to actual cookie for backward compatibility
+                const nameEQ = name + "=";
+                const ca = document.cookie.split(';');
+                for (let i = 0; i < ca.length; i++) {
+                    let c = ca[i];
+                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                    if (c.indexOf(nameEQ) === 0) {
+                        const value = c.substring(nameEQ.length, c.length);
+                        const decodedValue = decodeURIComponent(value);
+                        console.log(`🍪 Found in cookie: ${name} = ${decodedValue}`);
+                        return decodedValue;
+                    }
+                }
+                console.log(`🍪 Not found in cookie: ${name}`);
+                return null;
+            },
+
+            // Helper function to set data (deprecated - for backward compatibility)
+            setCookie(name, value, hours = 24) {
+                console.log(`⚠️ setCookie() is deprecated, use localStorage instead for: ${name}`);
+                
+                // Use localStorage instead
+                if (name === 'nekouToken') {
+                    this.setToken(value);
+                } else if (name === 'nekouUser') {
+                    try {
+                        const userData = typeof value === 'string' ? JSON.parse(value) : value;
+                        this.setCurrentUser(userData);
+                    } catch (error) {
+                        console.error('❌ Error parsing user data for localStorage:', error);
+                    }
+                } else {
+                    // Fallback to actual cookie for other values
+                    const expires = new Date();
+                    expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
+                    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/`;
+                    console.log(`🍪 Set cookie: ${name} = ${value}`);
+                }
+            },
+
+            // Update current user data in localStorage
+            updateCurrentUser(userData) {
+                this.setCurrentUser(userData);
+            },
+
+            // Base request function
+            async request(endpoint, options = {}) {
+                const token = this.getToken();
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                };
+
+                const config = {
+                    headers,
+                    mode: 'cors',
+                    credentials: 'omit',
+                    ...options
+                };
+
+                try {
+                    console.log(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
+                    const response = await fetch(`${this.baseURL}${endpoint}`, config);
+                    
+                    let data;
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        data = await response.json();
+                    } else {
+                        data = { message: await response.text() };
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    console.log(`✅ API Response:`, data);
+                    return data;
+                } catch (error) {
+                    console.error(`❌ API Error: ${endpoint}`, error);
+                    throw error;
+                }
+            },
+
+            // User Profile
+            async updateProfile(userId, userData) {
+                return this.request(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(userData)
+                });
+            },
+
+            // Change Password
+            async changePassword(userId, passwordData) {
+                return this.request(`/api/users/${userId}/password`, {
+                    method: 'PUT',
+                    body: JSON.stringify(passwordData)
+                });
+            },
+
+            // Change Email
+            async changeEmail(userId, emailData) {
+                return this.request(`/api/users/${userId}/email`, {
+                    method: 'PUT',
+                    body: JSON.stringify(emailData)
+                });
+            },
+
+            // User Preferences
+            async getUserPreferences(userId) {
+                return this.request(`/api/users/${userId}/preferences`, {
+                    method: 'GET'
+                });
+            },
+
+            async updatePreferences(userId, preferencesData) {
+                return this.request(`/api/users/${userId}/preferences`, {
+                    method: 'PUT',
+                    body: JSON.stringify(preferencesData)
+                });
+            },
+
+            // Partner management
+            async connectPartner(userId, partnerCode) {
+                return this.request(`/api/users/${userId}/connect-partner`, {
+                    method: 'POST',
+                    body: JSON.stringify({ partnerCode })
+                });
+            },
+
+            async disconnectPartner(userId) {
+                return this.request(`/api/users/${userId}/disconnect-partner`, {
+                    method: 'DELETE'
+                });
+            },
+
+            // Dashboard data
+            async getDashboardData(userId) {
+                return this.request(`/api/${userId}/dashboard`, {
+                    method: 'GET'
+                });
+            },
+
+            // Diary stats
+            async getDiaryStats(userId) {
+                return this.request(`/api/${userId}/diaries/stats`, {
+                    method: 'GET'
+                });
+            },
+
+            // Todo stats
+            async getTodoStats(userId) {
+                return this.request(`/api/${userId}/todos/stats`, {
+                    method: 'GET'
+                });
+            },
+
+            // Pomodoro stats
+            async getPomodoroStats(userId) {
+                return this.request(`/api/${userId}/pomodoro/stats`, {
+                    method: 'GET'
+                });
+            },
+
+            // Messages with partner
+            async getMessagesWithPartner(userId, partnerId) {
+                return this.request(`/api/${userId}/messages/${partnerId}`, {
+                    method: 'GET'
+                });
+            },
+
+            // Delete account
+            async deleteAccount(userId) {
+                return this.request(`/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+            },
+
+            logout() {
+                console.log('🚪 Logging out user...');
+                this.clearCorruptedData();
+                window.location.href = 'index.html';
+            },
+
+            // UI helpers
+            showError(message) {
+                // Create toast-like notification
+                const toast = document.createElement('div');
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #dc3545;
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 10px;
+                    z-index: 9999;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideIn 0.3s ease;
+                `;
+                toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
+                
+                // Add animation
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    toast.remove();
+                    style.remove();
+                }, 5000);
+            },
+
+            showSuccess(message) {
+                // Create toast-like notification
+                const toast = document.createElement('div');
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 10px;
+                    z-index: 9999;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideIn 0.3s ease;
+                `;
+                toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
+                
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+        };
+
+        // Analytics stub
+        console.log('📊 Analytics loaded');
+
+        // Enhanced Neko Helper Class for Settings Page
+        class NekoUHelper {
+            constructor() {
+                this.currentUser = null;
+                this.isInitialized = false;
+                this.api = SIMPLE_API;
+            }
+
+            // Initialize helper with user data
+            async initialize() {
+                try {
+                    console.log('🔧 Initializing NekoUHelper...');
+                    const token = this.api.getToken();
+                    const user = this.api.getCurrentUser();
+                    
+                    console.log('🔑 Token found:', !!token);
+                    console.log('👤 User found:', !!user);
+                    
+                    if (token && user) {
+                        this.currentUser = user;
+                        this.isInitialized = true;
+                        console.log('✅ Helper initialized successfully with user:', user.username || user.email);
+                        return true;
+                    }
+                    
+                    console.log('❌ Helper initialization failed - missing token or user');
+                    return false;
+                } catch (error) {
+                    console.error('❌ Helper initialization error:', error);
+                    return false;
+                }
+            }
+
+            // Get current user ID
+            getCurrentUserId() {
+                return this.currentUser?.id || null;
+            }
+
+            // Check if user is authenticated
+            isAuthenticated() {
+                return this.isInitialized && this.currentUser && this.api.getToken();
+            }
+
+            // Chat helpers
+            async sendMessage(receiverId, content) {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/messages', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            receiverId,
+                            content,
+                            type: 'text'
+                        })
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            async getMessages(partnerId, limit = 50) {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request(`/api/messages?partnerId=${partnerId}&limit=${limit}`, {
+                        method: 'GET'
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            // Diary helpers
+            async createDiary(title, content, isPrivate = true) {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/diaries', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            title,
+                            content,
+                            isPrivate,
+                            date: new Date().toISOString()
+                        })
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            async getDiaries(page = 1, limit = 10) {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request(`/api/diaries?page=${page}&limit=${limit}`, {
+                        method: 'GET'
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            // Todo helpers
+            async createTodo(title, description = '', dueDate = null) {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/todos', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            title,
+                            description,
+                            dueDate,
+                            completed: false
+                        })
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            async getTodos() {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/todos', {
+                        method: 'GET'
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            async updateTodo(todoId, updates) {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request(`/api/todos/${todoId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(updates)
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            // Pomodoro helpers
+            async createPomodoroSession(duration = 25, type = 'work') {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/pomodoro/sessions', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            duration: duration * 60, // Convert to seconds
+                            type,
+                            startTime: new Date().toISOString()
+                        })
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            async getPomodoroStats() {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/pomodoro/stats', {
+                        method: 'GET'
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            // Math helpers
+            async saveMathProgress(topic, score, timeSpent) {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/math/progress', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            topic,
+                            score,
+                            timeSpent,
+                            date: new Date().toISOString()
+                        })
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            async getMathProgress() {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const result = await this.api.request('/api/math/progress', {
+                        method: 'GET'
+                    });
+                    return result;
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+
+            // Utility functions
+            formatDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            formatRelativeTime(dateString) {
+                const date = new Date(dateString);
+                const now = new Date();
+                const diffInSeconds = Math.floor((now - date) / 1000);
+
+                if (diffInSeconds < 60) return 'เมื่อสักครู่';
+                if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} นาทีที่แล้ว`;
+                if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ชั่วโมงที่แล้ว`;
+                if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} วันที่แล้ว`;
+                
+                return this.formatDate(dateString);
+            }
+
+            // Notification helpers
+            showNotification(title, message, type = 'info') {
+                if (type === 'success') {
+                    this.api.showSuccess(message);
+                } else if (type === 'error') {
+                    this.api.showError(message);
+                } else {
+                    // Create info notification
+                    const toast = document.createElement('div');
+                    toast.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #17a2b8;
+                        color: white;
+                        padding: 15px 20px;
+                        border-radius: 10px;
+                        z-index: 9999;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                        animation: slideIn 0.3s ease;
+                    `;
+                    toast.innerHTML = `<i class="bi bi-info-circle me-2"></i>${message}`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                }
+            }
+
+            // Dashboard stats
+            async getDashboardStats() {
+                if (!this.isAuthenticated()) {
+                    return { success: false, message: 'กรุณาเข้าสู่ระบบก่อน' };
+                }
+
+                try {
+                    const [diaries, todos, messages, pomodoro] = await Promise.all([
+                        this.getDiaries(1, 1).catch(() => ({ data: { total: 0 } })),
+                        this.getTodos().catch(() => ({ data: [] })),
+                        this.getMessages(this.currentUser?.partner?.id || null, 1).catch(() => ({ data: { total: 0 } })),
+                        this.getPomodoroStats().catch(() => ({ data: { totalSessions: 0 } }))
+                    ]);
+
+                    return {
+                        success: true,
+                        data: {
+                            diaryCount: diaries.data?.total || 0,
+                            todoCount: Array.isArray(todos.data) ? todos.data.length : 0,
+                            messageCount: messages.data?.total || 0,
+                            pomodoroSessions: pomodoro.data?.totalSessions || 0
+                        }
+                    };
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+        }
+
+        // Chat Management Functions
+        class ChatManager {
+            constructor() {
+                this.messages = [];
+                this.isConnected = false;
+                this.typingTimeout = null;
+            }
+
+            async initializeChat() {
+                try {
+                    if (!currentUser || !currentUser.partner) {
+                        console.log('⚠️ No partner found for chat');
+                        return false;
+                    }
+
+                    // Load recent messages
+                    const response = await nekoHelper.getMessages(currentUser.partner.id, 50);
+                    if (response.success) {
+                        this.messages = response.data.messages || [];
+                        this.isConnected = true;
+                        return true;
+                    }
+
+                    return false;
+                } catch (error) {
+                    console.error('❌ Chat initialization failed:', error);
+                    return false;
+                }
+            }
+
+            async sendMessage(content) {
+                if (!currentUser.partner) {
+                    throw new Error('ไม่พบคู่รัก');
+                }
+
+                const response = await nekoHelper.sendMessage(currentUser.partner.id, content);
+                if (response.success) {
+                    this.messages.push(response.data);
+                    return response.data;
+                }
+
+                throw new Error(response.message);
+            }
+
+            formatMessage(message) {
+                return {
+                    id: message.id,
+                    content: message.content,
+                    sender: message.senderId === currentUser.id ? 'me' : 'partner',
+                    timestamp: nekoHelper.formatRelativeTime(message.createdAt),
+                    createdAt: message.createdAt
+                };
+            }
+        }
+
+        // Neko AI Chat Functions
+        class NekoAIChat {
+            constructor() {
+                this.conversations = [];
+                this.currentMood = 'happy';
+                this.responses = {
+                    greetings: [
+                        "สวัสดี! วันนี้เป็นอย่างไรบ้าง? 🐱",
+                        "หวัดดี~ มีอะไรให้เนโกะช่วยไหม? 💕",
+                        "ยินดีที่ได้เจอกัน! อยากคุยเรื่องอะไร? ✨"
+                    ],
+                    encouragement: [
+                        "คุณทำได้! เนโกะเชื่อในตัวคุณ 💪",
+                        "อย่าท้อนะ ทุกปัญหาต้องมีทางออก 🌟",
+                        "เนโกะอยู่เคียงข้างคุณเสมอ 💖"
+                    ],
+                    compliments: [
+                        "คุณเก่งมาก! เนโกะชื่นชอบความพยายามของคุณ 🌈",
+                        "วันนี้คุณดูดีมากเลย! ✨",
+                        "คุณมีความคิดที่ยอดเยี่ยมจริงๆ 🎯"
+                    ],
+                    general: [
+                        "เนโกะเข้าใจความรู้สึกของคุณ 💭",
+                        "นั่นเป็นเรื่องที่น่าสนใจมาก! 🤔",
+                        "ขอบคุณที่แบ่งปันเรื่องนี้กับเนโกะ 💕"
+                    ]
+                };
+            }
+
+            async generateResponse(userMessage) {
+                const message = userMessage.toLowerCase();
+                
+                // Simple AI response logic
+                if (message.includes('สวัสดี') || message.includes('หวัดดี') || message.includes('hello')) {
+                    return this.getRandomResponse('greetings');
+                }
+                
+                if (message.includes('เศร้า') || message.includes('ท้อ') || message.includes('เหนื่อย')) {
+                    return this.getRandomResponse('encouragement');
+                }
+                
+                if (message.includes('ขอบคุณ') || message.includes('เก่ง') || message.includes('ดี')) {
+                    return this.getRandomResponse('compliments');
+                }
+                
+                return this.getRandomResponse('general');
+            }
+
+            getRandomResponse(category) {
+                const responses = this.responses[category];
+                return responses[Math.floor(Math.random() * responses.length)];
+            }
+
+            async saveConversation(userMessage, aiResponse) {
+                try {
+                    const conversation = {
+                        userMessage,
+                        aiResponse,
+                        mood: this.currentMood,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    const result = await SIMPLE_API.request('/api/neko-chat/conversations', {
+                        method: 'POST',
+                        body: JSON.stringify(conversation)
+                    });
+
+                    if (result.success) {
+                        this.conversations.push(conversation);
+                    }
+
+                    return result;
+                } catch (error) {
+                    console.error('❌ Failed to save conversation:', error);
+                    return { success: false, message: error.message };
+                }
+            }
+        }
+
+        // Pomodoro Timer Class
+        class PomodoroTimer {
+            constructor() {
+                this.timerInterval = null;
+                this.timeLeft = 25 * 60; // 25 minutes in seconds
+                this.isRunning = false;
+                this.isBreak = false;
+                this.sessionCount = 0;
+                this.currentSession = null;
+                
+                this.WORK_TIME = 25 * 60; // 25 minutes
+                this.SHORT_BREAK = 5 * 60; // 5 minutes  
+                this.LONG_BREAK = 15 * 60; // 15 minutes
+            }
+
+            start() {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.createSession();
+                
+                this.timerInterval = setInterval(() => {
+                    this.timeLeft--;
+                    this.updateDisplay();
+                    
+                    if (this.timeLeft <= 0) {
+                        this.complete();
+                    }
+                }, 1000);
+            }
+
+            pause() {
+                this.isRunning = false;
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+
+            reset() {
+                this.pause();
+                this.timeLeft = this.isBreak ? this.getBreakDuration() : this.WORK_TIME;
+                this.updateDisplay();
+            }
+
+            complete() {
+                this.pause();
+                
+                if (!this.isBreak) {
+                    // Work session completed
+                    this.sessionCount++;
+                    this.saveSession();
+                    
+                    // Switch to break
+                    this.isBreak = true;
+                    this.timeLeft = this.getBreakDuration();
+                    
+                    nekoHelper.showNotification('Pomodoro Complete!', 'เวลาพัก! ยินดีด้วย 🎉', 'success');
+                } else {
+                    // Break completed
+                    this.isBreak = false;
+                    this.timeLeft = this.WORK_TIME;
+                    
+                    nekoHelper.showNotification('Break Over!', 'เริ่มทำงานต่อกันเถอะ! 💪', 'info');
+                }
+                
+                this.updateDisplay();
+            }
+
+            getBreakDuration() {
+                return this.sessionCount % 4 === 0 ? this.LONG_BREAK : this.SHORT_BREAK;
+            }
+
+            async createSession() {
+                try {
+                    const response = await nekoHelper.createPomodoroSession(
+                        this.isBreak ? this.getBreakDuration() / 60 : 25,
+                        this.isBreak ? 'break' : 'work'
+                    );
+                    
+                    if (response.success) {
+                        this.currentSession = response.data;
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to create pomodoro session:', error);
+                }
+            }
+
+            async saveSession() {
+                try {
+                    if (this.currentSession) {
+                        await SIMPLE_API.request(`/api/pomodoro/sessions/${this.currentSession.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                                completed: true,
+                                endTime: new Date().toISOString()
+                            })
+                        });
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to save pomodoro session:', error);
+                }
+            }
+
+            updateDisplay() {
+                const minutes = Math.floor(this.timeLeft / 60);
+                const seconds = this.timeLeft % 60;
+                const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Update document title for browser tab
+                document.title = `${timeString} - ${this.isBreak ? 'พัก' : 'ทำงาน'} | Neko U`;
+                
+                console.log(`⏰ Timer: ${timeString} (${this.isBreak ? 'Break' : 'Work'})`);
+            }
+
+            formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // Todo Manager Class
+        class TodoManager {
+            constructor() {
+                this.todos = [];
+            }
+
+            async loadTodos() {
+                try {
+                    const response = await nekoHelper.getTodos();
+                    if (response.success) {
+                        this.todos = response.data;
+                        return this.todos;
+                    }
+                    return [];
+                } catch (error) {
+                    console.error('❌ Failed to load todos:', error);
+                    return [];
+                }
+            }
+
+            async addTodo(title, description = '', dueDate = null) {
+                try {
+                    const response = await nekoHelper.createTodo(title, description, dueDate);
+                    if (response.success) {
+                        this.todos.push(response.data);
+                        return response.data;
+                    }
+                    throw new Error(response.message);
+                } catch (error) {
+                    console.error('❌ Failed to add todo:', error);
+                    throw error;
+                }
+            }
+
+            async updateTodo(todoId, updates) {
+                try {
+                    const response = await nekoHelper.updateTodo(todoId, updates);
+                    if (response.success) {
+                        const index = this.todos.findIndex(todo => todo.id === todoId);
+                        if (index !== -1) {
+                            this.todos[index] = { ...this.todos[index], ...updates };
+                        }
+                        return response.data;
+                    }
+                    throw new Error(response.message);
+                } catch (error) {
+                    console.error('❌ Failed to update todo:', error);
+                    throw error;
+                }
+            }
+
+            async deleteTodo(todoId) {
+                try {
+                    const response = await SIMPLE_API.request(`/api/todos/${todoId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.success) {
+                        this.todos = this.todos.filter(todo => todo.id !== todoId);
+                        return true;
+                    }
+                    throw new Error(response.message);
+                } catch (error) {
+                    console.error('❌ Failed to delete todo:', error);
+                    throw error;
+                }
+            }
+
+            getCompletedCount() {
+                return this.todos.filter(todo => todo.completed).length;
+            }
+
+            getPendingCount() {
+                return this.todos.filter(todo => !todo.completed).length;
+            }
+        }
+
+        // Math Progress Tracker
+        class MathTracker {
+            constructor() {
+                this.currentScore = 0;
+                this.currentTopic = null;
+                this.startTime = null;
+            }
+
+            startSession(topic) {
+                this.currentTopic = topic;
+                this.currentScore = 0;
+                this.startTime = new Date();
+            }
+
+            addScore(points) {
+                this.currentScore += points;
+            }
+
+            async endSession() {
+                if (!this.currentTopic || !this.startTime) return false;
+
+                const timeSpent = Math.floor((new Date() - this.startTime) / 1000);
+                
+                try {
+                    const response = await nekoHelper.saveMathProgress(
+                        this.currentTopic,
+                        this.currentScore,
+                        timeSpent
+                    );
+                    
+                    if (response.success) {
+                        nekoHelper.showNotification(
+                            'Math Session Complete!',
+                            `คะแนน: ${this.currentScore} | เวลา: ${Math.floor(timeSpent / 60)} นาที`,
+                            'success'
+                        );
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('❌ Failed to save math progress:', error);
+                    return false;
+                }
+            }
+
+            async getProgress() {
+                try {
+                    const response = await nekoHelper.getMathProgress();
+                    return response.success ? response.data : [];
+                } catch (error) {
+                    console.error('❌ Failed to get math progress:', error);
+                    return [];
+                }
+            }
+        }
+
+        // Diary Manager Class
+        class DiaryManager {
+            constructor() {
+                this.diaries = [];
+            }
+
+            async loadDiaries(page = 1, limit = 10) {
+                try {
+                    const response = await nekoHelper.getDiaries(page, limit);
+                    if (response.success) {
+                        this.diaries = response.data.diaries || [];
+                        return {
+                            diaries: this.diaries,
+                            total: response.data.total || 0,
+                            page: response.data.page || 1
+                        };
+                    }
+                    return { diaries: [], total: 0, page: 1 };
+                } catch (error) {
+                    console.error('❌ Failed to load diaries:', error);
+                    return { diaries: [], total: 0, page: 1 };
+                }
+            }
+
+            async createDiary(title, content, isPrivate = true) {
+                try {
+                    const response = await nekoHelper.createDiary(title, content, isPrivate);
+                    if (response.success) {
+                        this.diaries.unshift(response.data);
+                        return response.data;
+                    }
+                    throw new Error(response.message);
+                } catch (error) {
+                    console.error('❌ Failed to create diary:', error);
+                    throw error;
+                }
+            }
+
+            async updateDiary(diaryId, updates) {
+                try {
+                    const response = await SIMPLE_API.request(`/api/diaries/${diaryId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(updates)
+                    });
+                    
+                    if (response.success) {
+                        const index = this.diaries.findIndex(diary => diary.id === diaryId);
+                        if (index !== -1) {
+                            this.diaries[index] = { ...this.diaries[index], ...updates };
+                        }
+                        return response.data;
+                    }
+                    throw new Error(response.message);
+                } catch (error) {
+                    console.error('❌ Failed to update diary:', error);
+                    throw error;
+                }
+            }
+
+            async deleteDiary(diaryId) {
+                try {
+                    const response = await SIMPLE_API.request(`/api/diaries/${diaryId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.success) {
+                        this.diaries = this.diaries.filter(diary => diary.id !== diaryId);
+                        return true;
+                    }
+                    throw new Error(response.message);
+                } catch (error) {
+                    console.error('❌ Failed to delete diary:', error);
+                    throw error;
+                }
+            }
+        }
+
+        // Function to fetch fresh user data from API and update localStorage
+        async function fetchAndUpdateUserData() {
+            try {
+                console.log('🔄 Fetching fresh user data from API...');
+                const token = SIMPLE_API.getToken();
+                if (!token) {
+                    console.log('❌ No token found');
+                    return null;
+                }
+
+                // Get current user from localStorage first
+                let user = SIMPLE_API.getCurrentUser();
+                if (!user || !user.id) {
+                    console.log('❌ No user ID found in localStorage');
+                    return null;
+                }
+
+                console.log('📋 Attempting to fetch user data for ID:', user.id);
+                
+                // Test API connectivity first
+                try {
+                    const testResponse = await fetch(`${SIMPLE_API.baseURL}/api/health`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    console.log('🏥 API Health check:', testResponse.status);
+                } catch (healthError) {
+                    console.log('⚠️ API health check failed:', healthError.message);
+                }
+
+                // Fetch fresh data from API
+                const response = await SIMPLE_API.getUser(user.id);
+                console.log('📊 API Response for user data:', response);
+                
+                if (response && response.success && response.user) {
+                    console.log('✅ Fresh user data received:', response.user);
+                    
+                    // Update localStorage with fresh data
+                    SIMPLE_API.updateCurrentUser(response.user);
+                    console.log('✅ localStorage updated with fresh data');
+                    
+                    return response.user;
+                } else if (response && response.user) {
+                    // Some APIs might not use 'success' flag
+                    console.log('✅ User data received (alternative format):', response.user);
+                    SIMPLE_API.updateCurrentUser(response.user);
+                    return response.user;
+                } else {
+                    console.log('❌ Failed to fetch user data:', response);
+                    console.log('📋 Using cached user data as fallback');
+                    return user; // Return cached data as fallback
+                }
+            } catch (error) {
+                console.error('❌ Error fetching user data:', error);
+                console.log('📋 Using cached user data as fallback');
+                return SIMPLE_API.getCurrentUser(); // Return cached data as fallback
+            }
+        }
+
+        // Development helper function to simulate login (for testing)
+        function simulateLogin() {
+            console.log('🧪 Simulating login for development testing...');
+            
+            // Mock user data
+            const mockUser = {
+                id: 'test-user-123',
+                username: 'testuser',
+                email: 'test@example.com',
+                displayName: 'Test User',
+                createdAt: new Date().toISOString(),
+                partner: null
+            };
+            
+            // Mock JWT token (this is just for testing - in real app this comes from login API)
+            const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItMTIzIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTYxNjIzOTAyMn0.test-signature';
+            
+            // Save to localStorage
+            SIMPLE_API.setToken(mockToken);
+            SIMPLE_API.setCurrentUser(mockUser);
+            
+            console.log('✅ Mock login data saved to localStorage');
+            console.log('🔄 Reloading page to test authentication...');
+            
+            // Reload page to test the auth flow
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+
+        // Function to inspect current auth state (for debugging)
+        function inspectAuthState() {
+            console.log('🔍 === CURRENT AUTH STATE INSPECTION ===');
+            
+            // Check localStorage
+            console.log('💾 localStorage:');
+            console.log('  - nekouToken:', localStorage.getItem('nekouToken') || 'not found');
+            console.log('  - nekouUser:', localStorage.getItem('nekouUser') || 'not found');
+            
+            // Check cookies (for comparison)
+            console.log('🍪 Cookies:');
+            const cookies = document.cookie.split(';');
+            cookies.forEach(cookie => {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'nekouToken' || name === 'nekouUser') {
+                    console.log(`  - ${name}:`, value || 'empty');
+                }
+            });
+            
+            // Test SIMPLE_API methods
+            console.log('🔧 SIMPLE_API methods:');
+            console.log('  - getToken():', SIMPLE_API.getToken());
+            console.log('  - getCurrentUser():', SIMPLE_API.getCurrentUser());
+            
+            // Auth status
+            if (typeof checkAuthenticationStatus === 'function') {
+                console.log('🔍 Auth check result:', checkAuthenticationStatus());
+            }
+        }
+
+        // Make dev functions globally available (remove in production)
+        window.simulateLogin = simulateLogin;
+        window.inspectAuthState = inspectAuthState;
+
+        // Show login required alert with clear instructions
+        function showLoginRequiredAlert() {
+            console.log('🚨 Showing login required alert...');
+            
+            // Create a more prominent alert
+            const alertDiv = document.createElement('div');
+            alertDiv.id = 'loginRequiredAlert';
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                z-index: 10000;
+                text-align: center;
+                max-width: 450px;
+                border: 3px solid #ffc107;
+            `;
+            
+            alertDiv.innerHTML = `
+                <div style="color: #ffc107; font-size: 48px; margin-bottom: 15px;">⚠️</div>
+                <h4 style="color: #856404; margin-bottom: 15px;">จำเป็นต้องเข้าสู่ระบบ</h4>
+                <p style="margin-bottom: 20px; color: #666;">
+                    ระบบตรวจพบว่าข้อมูลการเข้าสู่ระบบไม่ถูกต้องหรือหมดอายุ<br>
+                    คุณต้องการเข้าสู่ระบบใหม่หรือลองใช้งานต่อ?<br>
+                    <small style="color: #999; margin-top: 10px; display: block;">
+                        💡 เคล็ดลับ: ลองกดปุ่ม "ทดสอบระบบ" เพื่อจำลองการเข้าสู่ระบบ
+                    </small>
+                </p>
+                <div style="display: flex; gap: 8px; margin-top: 20px;">
+                    <button onclick="tryAgain()" style="
+                        background: #17a2b8;
+                        color: white;
+                        border: none;
+                        padding: 10px 16px;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        flex: 1;
+                    ">
+                        ลองใช้งานต่อ
+                    </button>
+                    <button onclick="clearAndTryAgain()" style="
+                        background: #6c757d;
+                        color: white;
+                        border: none;
+                        padding: 10px 16px;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        flex: 1;
+                    ">
+                        ล้างข้อมูลเก่า
+                    </button>
+                    <button onclick="simulateLogin()" style="
+                        background: #28a745;
+                        color: white;
+                        border: none;
+                        padding: 10px 16px;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        flex: 1;
+                    ">
+                        ทดสอบระบบ
+                    </button>
+                    <button onclick="goToLogin()" style="
+                        background: #ffc107;
+                        color: #212529;
+                        border: none;
+                        padding: 10px 16px;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        flex: 1;
+                    ">
+                        เข้าสู่ระบบใหม่
+                    </button>
+                </div>
+                <p style="margin-top: 15px; font-size: 12px; color: #999;">
+                    จะเปลี่ยนเส้นทางอัตโนมัติในอีก <span id="countdown">30</span> วินาที
+                </p>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            // Countdown timer
+            let countdown = 30;
+            const countdownEl = document.getElementById('countdown');
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                if (countdownEl) {
+                    countdownEl.textContent = countdown;
+                }
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    goToLogin();
+                }
+            }, 1000);
+            
+            // Store interval for cleanup
+            alertDiv.countdownInterval = countdownInterval;
+        }
+
+        // Try to continue using the app
+        function tryAgain() {
+            console.log('🔄 User chose to try again...');
+            const alertDiv = document.getElementById('loginRequiredAlert');
+            if (alertDiv) {
+                if (alertDiv.countdownInterval) {
+                    clearInterval(alertDiv.countdownInterval);
+                }
+                alertDiv.remove();
+            }
+            
+            // Try to reload the page
+            window.location.reload();
+        }
+
+        // Clear corrupted data and try again
+        function clearAndTryAgain() {
+            console.log('🧹 User chose to clear corrupted data and try again...');
+            const alertDiv = document.getElementById('loginRequiredAlert');
+            if (alertDiv) {
+                if (alertDiv.countdownInterval) {
+                    clearInterval(alertDiv.countdownInterval);
+                }
+                alertDiv.remove();
+            }
+            
+            // Clear all authentication data
+            console.log('🧹 Clearing all authentication data...');
+            SIMPLE_API.clearCorruptedData();
+            
+            // Also clear any remaining cookies for good measure
+            document.cookie = 'nekouToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+            document.cookie = 'nekouUser=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+            
+            // Show success message
+            SIMPLE_API.showSuccess('ล้างข้อมูลเก่าเรียบร้อย กำลังโหลดหน้าใหม่...');
+            
+            // Reload after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+
+        // Show placeholder content when user data is not available
+        function showPlaceholderContent() {
+            console.log('📋 Showing placeholder content...');
+            
+            // Update user display elements with placeholder text
+            const userDisplayName = document.getElementById('userDisplayName');
+            if (userDisplayName) {
+                userDisplayName.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+            }
+            
+            const userEmail = document.getElementById('userEmail');
+            if (userEmail) {
+                userEmail.textContent = 'กรุณาเข้าสู่ระบบใหม่';
+            }
+            
+            const userUsername = document.getElementById('userUsername');
+            if (userUsername) {
+                userUsername.textContent = '-';
+            }
+            
+            const userJoinDate = document.getElementById('userJoinDate');
+            if (userJoinDate) {
+                userJoinDate.textContent = '-';
+            }
+            
+            // Show info notification
+            SIMPLE_API.showError('ไม่สามารถโหลดข้อมูลผู้ใช้ได้ บางฟีเจอร์อาจใช้งานไม่ได้');
+            
+            // Show login alert after a delay
+            setTimeout(() => {
+                showLoginRequiredAlert();
+            }, 2000);
+        }
+
+        // Function to go to login page
+        function goToLogin() {
+            console.log('🚪 Redirecting to login page...');
+            SIMPLE_API.clearCorruptedData();
+            window.location.href = 'index.html';
+        }
+
+        // Navigation functions
+        function navigateToPage(pageName) {
+            const token = SIMPLE_API.getToken();
+            const user = SIMPLE_API.getCurrentUser();
+            
+            if (!token || !user) {
+                showLoginRequiredAlert();
+                return;
+            }
+            
+            window.location.href = pageName;
+        }
+
+        // Logout function
+        function handleLogout() {
+            if (confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
+                SIMPLE_API.logout();
+            }
+        }
+
+        // Make functions globally available
+        window.goToLogin = goToLogin;
+        window.navigateToPage = navigateToPage;
+        window.handleLogout = handleLogout;
+        window.showLoginRequiredAlert = showLoginRequiredAlert;
+        window.tryAgain = tryAgain;
+        window.clearAndTryAgain = clearAndTryAgain;
+        window.showPlaceholderContent = showPlaceholderContent;
+    </script>
     
-    <!-- Settings page script -->
-    <script src="../js/settings.js"></script>
+    <script>
+        let currentUser = null;
+        
+        // Initialize settings page
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                console.log('🚀 === SETTINGS PAGE INITIALIZATION START ===');
+                
+                // ตรวจสอบ SIMPLE_API
+                if (typeof SIMPLE_API === 'undefined') {
+                    alert('❌ SIMPLE_API ยังไม่ถูกโหลด กรุณาตรวจสอบการ include script หรือรีเฟรชหน้าใหม่');
+                    console.error('SIMPLE_API is undefined.');
+                    return;
+                }
+                console.log('✅ SIMPLE_API loaded successfully');
+                
+                // ตรวจสอบ token และ localStorage ทันที
+                const token = SIMPLE_API.getToken();
+                const cachedUser = SIMPLE_API.getCurrentUser();
+                console.log('🔑 Token status:', token ? 'EXISTS' : 'NOT_FOUND');
+                console.log('� Token preview:', token ? token.substring(0, 20) + '...' : 'null');
+                console.log('�👤 Cached user:', cachedUser);
+                
+                if (!token || !cachedUser || !cachedUser.id) {
+                    console.log('⚠️ Authentication data missing or invalid');
+                    console.log('⚠️ Token:', !!token);
+                    console.log('⚠️ CachedUser:', !!cachedUser);
+                    console.log('⚠️ User ID:', cachedUser?.id);
+                    
+                    // Show user-friendly alert instead of immediate redirect
+                    showLoginRequiredAlert();
+                    return;
+                }
+                
+                console.log('✅ Authentication check passed');
+                console.log('🚀 Starting settings page initialization...');
+                
+                // Show loading indicator
+                showLoadingStatus(true, 'กำลังโหลดข้อมูลผู้ใช้...');
+                
+                // Fetch fresh user data from API
+                console.log('📡 Fetching fresh user data...');
+                currentUser = await fetchAndUpdateUserData();
+                console.log('📋 Current user after fetch:', currentUser);
+                
+                if (!currentUser || !currentUser.id) {
+                    console.error('❌ Failed to get user data');
+                    console.log('⚠️ Will show placeholder content instead of failing');
+                    
+                    // Show placeholder content instead of error
+                    showPlaceholderContent();
+                    return;
+                }
+                
+                console.log('✅ User data loaded successfully');
+                console.log('🔄 Updating UI with fresh user data...');
+                
+                // Setup UI first
+                console.log('⚙️ Setting up UI...');
+                setupSettingsUI();
+                
+                // Test API endpoints
+                console.log('🧪 Testing API endpoints...');
+                await testApiEndpoints();
+                
+                // Debug: Show current user data
+                console.log('🔍 Running user debug...');
+                debugCurrentUser();
+                
+                // Update user info in overview card and sidebar
+                console.log('📊 Updating user overview...');
+                updateNavigationBar();
+                updateUserOverview();
+                updateQuickInfo();
+                
+                // Load current settings (forms, partner, etc.)
+                console.log('📝 Loading user settings...');
+                await loadUserSettings();
+                
+                // Initialize all application managers
+                console.log('🏗️ Initializing application managers...');
+                await initializeAllManagers();
+                
+                // Hide loading indicator
+                showLoadingStatus(false);
+                
+                console.log('✅ === SETTINGS PAGE INITIALIZATION COMPLETED ===');
+            } catch (error) {
+                console.error('❌ === SETTINGS INITIALIZATION ERROR ===');
+                console.error('Error details:', error);
+                console.error('Stack trace:', error.stack);
+                showLoadingStatus(false);
+                
+                if (typeof SIMPLE_API !== 'undefined' && SIMPLE_API.showError) {
+                    SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
+                } else {
+                    alert('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
+                }
+            }
+        });
+
+        // App initialization and managers consolidation
+        let nekoHelper, chatManager, nekoAIChat, pomodoroTimer, todoManager, mathTracker, diaryManager;
+
+        async function initializeAllManagers() {
+            try {
+                console.log('🚀 Initializing all application managers...');
+                
+                // Initialize NekoU Helper
+                if (typeof NekoUHelper !== 'undefined') {
+                    nekoHelper = new NekoUHelper();
+                    console.log('✅ NekoU Helper initialized');
+                }
+                
+                // Initialize Chat Manager  
+                if (typeof ChatManager !== 'undefined') {
+                    chatManager = new ChatManager();
+                    console.log('✅ Chat Manager initialized');
+                }
+                
+                // Initialize Neko AI Chat
+                if (typeof NekoAIChat !== 'undefined') {
+                    nekoAIChat = new NekoAIChat();
+                    console.log('✅ Neko AI Chat initialized');
+                }
+                
+                // Initialize Pomodoro Timer
+                if (typeof PomodoroTimer !== 'undefined') {
+                    pomodoroTimer = new PomodoroTimer();
+                    console.log('✅ Pomodoro Timer initialized');
+                }
+                
+                // Initialize Todo Manager
+                if (typeof TodoManager !== 'undefined') {
+                    todoManager = new TodoManager();
+                    console.log('✅ Todo Manager initialized');
+                }
+                
+                // Initialize Math Tracker
+                if (typeof MathTracker !== 'undefined') {
+                    mathTracker = new MathTracker();
+                    console.log('✅ Math Tracker initialized');
+                }
+                
+                // Initialize Diary Manager
+                if (typeof DiaryManager !== 'undefined') {
+                    diaryManager = new DiaryManager();
+                    console.log('✅ Diary Manager initialized');
+                }
+                
+                // Load initial data
+                await loadAllInitialData();
+                
+                console.log('🎉 All managers initialized successfully!');
+            } catch (error) {
+                console.error('❌ Failed to initialize managers:', error);
+                showNotification('เกิดข้อผิดพลาดในการเริ่มต้นระบบ', 'error');
+            }
+        }
+
+        async function loadAllInitialData() {
+            try {
+                console.log('📊 Loading initial data from all managers...');
+                
+                // Load data in parallel for better performance
+                const loadPromises = [];
+                
+                if (diaryManager && typeof diaryManager.loadDiaries === 'function') {
+                    loadPromises.push(diaryManager.loadDiaries(1, 5).catch(error => {
+                        console.warn('⚠️ Could not load diary data:', error);
+                        return null;
+                    }));
+                }
+                
+                if (todoManager && typeof todoManager.loadTodos === 'function') {
+                    loadPromises.push(todoManager.loadTodos().catch(error => {
+                        console.warn('⚠️ Could not load todo data:', error);
+                        return null;
+                    }));
+                }
+                
+                if (chatManager && typeof chatManager.initializeChat === 'function' && currentUser.partner) {
+                    loadPromises.push(chatManager.initializeChat().catch(error => {
+                        console.warn('⚠️ Could not load chat data:', error);
+                        return null;
+                    }));
+                }
+                
+                // Wait for all data to load
+                await Promise.all(loadPromises);
+                
+                // Update quick stats with real data
+                setTimeout(() => {
+                    updateQuickStats();
+                }, 1000);
+                
+                console.log('✅ Initial data loaded successfully');
+            } catch (error) {
+                console.error('❌ Failed to load initial data:', error);
+            }
+        }
+        
+        function showLoadingStatus(show, message = 'กำลังโหลด...') {
+            const loadingStatus = document.getElementById('loadingStatus');
+            if (loadingStatus) {
+                if (show) {
+                    const span = loadingStatus.querySelector('span');
+                    if (span) span.textContent = message;
+                    loadingStatus.style.display = 'block';
+                } else {
+                    loadingStatus.style.display = 'none';
+                }
+            }
+        }
+        
+        // Test API endpoints individually
+        async function testApiEndpoints() {
+            console.log('🧪 Testing API endpoints...');
+            
+            if (!currentUser || !currentUser.id) {
+                console.log('❌ No current user for testing');
+                return;
+            }
+            
+            const token = SIMPLE_API.getToken();
+            console.log('🔑 Token exists:', !!token);
+            console.log('🔑 Token preview:', token ? token.substring(0, 20) + '...' : 'null');
+            
+            // Test user data endpoint
+            try {
+                console.log('🧪 Testing GET /api/users/' + currentUser.id);
+                const userResponse = await SIMPLE_API.getUser(currentUser.id);
+                console.log('👤 User data test result:', userResponse);
+            } catch (error) {
+                console.log('❌ User data test failed:', error.message);
+            }
+            
+            // Test preferences endpoint
+            try {
+                console.log('🧪 Testing GET /api/users/' + currentUser.id + '/preferences');
+                const prefsResponse = await SIMPLE_API.getUserPreferences(currentUser.id);
+                console.log('⚙️ Preferences test result:', prefsResponse);
+            } catch (error) {
+                console.log('❌ Preferences test failed:', error.message);
+            }
+        }
+        
+        function debugCurrentUser() {
+            console.log('🔍 === USER DEBUG INFO ===');
+            console.log('📊 currentUser object:', currentUser);
+            
+            if (currentUser) {
+                console.log('📝 User properties:');
+                Object.keys(currentUser).forEach(key => {
+                    console.log(`   ${key}:`, currentUser[key]);
+                });
+            } else {
+                console.log('❌ No currentUser data');
+            }
+            
+            // Check cookies
+            console.log('🍪 Cookies:');
+            console.log('   nekouUser:', SIMPLE_API.getCookie('nekouUser'));
+            console.log('   nekouToken:', SIMPLE_API.getCookie('nekouToken') ? 'EXISTS' : 'NOT_FOUND');
+            
+            console.log('🔍 === END DEBUG INFO ===');
+        }
+        
+        function setupSettingsUI() {
+            // Setup profile update form
+            const profileForm = document.getElementById('updateProfileForm');
+            if (profileForm) {
+                profileForm.addEventListener('submit', handleUpdateProfile);
+            }
+            
+            // Setup preferences form
+            const preferencesForm = document.getElementById('preferencesForm');
+            if (preferencesForm) {
+                preferencesForm.addEventListener('submit', handleUpdatePreferences);
+            }
+            
+            // Setup edit profile buttons
+            const editBasicProfileBtn = document.getElementById('editBasicProfileBtn');
+            const saveBasicProfileBtn = document.getElementById('saveBasicProfileBtn');
+            const cancelBasicProfileBtn = document.getElementById('cancelBasicProfileBtn');
+            
+            if (editBasicProfileBtn) {
+                editBasicProfileBtn.addEventListener('click', () => toggleEditMode('basic', true));
+            }
+            if (saveBasicProfileBtn) {
+                saveBasicProfileBtn.addEventListener('click', handleUpdateProfile);
+            }
+            if (cancelBasicProfileBtn) {
+                cancelBasicProfileBtn.addEventListener('click', () => {
+                    toggleEditMode('basic', false);
+                    // Reset form to original values
+                    loadUserSettings();
+                });
+            }
+            
+            // Setup preferences buttons
+            const editPreferencesBtn = document.getElementById('editPreferencesBtn');
+            const savePreferencesBtn = document.getElementById('savePreferencesBtn');
+            const cancelPreferencesBtn = document.getElementById('cancelPreferencesBtn');
+            
+            if (editPreferencesBtn) {
+                editPreferencesBtn.addEventListener('click', () => toggleEditMode('preferences', true));
+            }
+            if (savePreferencesBtn) {
+                savePreferencesBtn.addEventListener('click', handleUpdatePreferences);
+            }
+            if (cancelPreferencesBtn) {
+                cancelPreferencesBtn.addEventListener('click', () => {
+                    toggleEditMode('preferences', false);
+                    // Reset form to original values
+                    loadUserPreferences();
+                });
+            }
+            
+            // Setup password and email change forms
+            const changePasswordForm = document.getElementById('changePasswordForm')?.querySelector('form');
+            const changeEmailForm = document.getElementById('changeEmailForm')?.querySelector('form');
+            
+            if (changePasswordForm) {
+                changePasswordForm.addEventListener('submit', handleChangePassword);
+            }
+            if (changeEmailForm) {
+                changeEmailForm.addEventListener('submit', handleChangeEmail);
+            }
+            
+            // Setup password and email change buttons
+            const editPasswordBtn = document.getElementById('editPasswordBtn');
+            const editEmailBtn = document.getElementById('editEmailBtn');
+            
+            if (editPasswordBtn) {
+                editPasswordBtn.addEventListener('click', () => {
+                    const form = document.getElementById('changePasswordForm');
+                    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+                });
+            }
+            
+            if (editEmailBtn) {
+                editEmailBtn.addEventListener('click', () => {
+                    const form = document.getElementById('changeEmailForm');
+                    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+                });
+            }
+            
+            // Setup password strength indicator
+            const newPasswordInput = document.getElementById('newPassword');
+            if (newPasswordInput) {
+                newPasswordInput.addEventListener('input', updatePasswordStrength);
+            }
+            
+            // Setup delete account button
+            const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+            if (deleteAccountBtn) {
+                deleteAccountBtn.addEventListener('click', handleDeleteAccount);
+            }
+            
+            // Setup partner connection
+            setupPartnerConnection();
+            
+            // Setup overview edit button
+            const editOverviewBtn = document.getElementById('editOverviewBtn');
+            if (editOverviewBtn) {
+                editOverviewBtn.addEventListener('click', () => {
+                    // Scroll to profile section and enable edit mode
+                    const profileCard = document.querySelector('.card.settings-card');
+                    if (profileCard) {
+                        profileCard.scrollIntoView({ behavior: 'smooth' });
+                        setTimeout(() => {
+                            toggleEditMode('basic', true);
+                        }, 500);
+                    }
+                });
+            }
+        }
+        
+        function toggleEditMode(section, isEditing) {
+            const formInputs = document.querySelectorAll(`#${section === 'basic' ? 'updateProfileForm' : 'preferencesForm'} input, #${section === 'basic' ? 'updateProfileForm' : 'preferencesForm'} select, #${section === 'basic' ? 'updateProfileForm' : 'preferencesForm'} textarea`);
+            const editBtn = document.getElementById(section === 'basic' ? 'editBasicProfileBtn' : 'editPreferencesBtn');
+            const saveBtn = document.getElementById(section === 'basic' ? 'saveBasicProfileBtn' : 'savePreferencesBtn');
+            const cancelBtn = document.getElementById(section === 'basic' ? 'cancelBasicProfileBtn' : 'cancelPreferencesBtn');
+            
+            formInputs.forEach(input => {
+                input.disabled = !isEditing;
+            });
+            
+            if (editBtn) editBtn.style.display = isEditing ? 'none' : 'inline-block';
+            if (saveBtn) saveBtn.style.display = isEditing ? 'inline-block' : 'none';
+            if (cancelBtn) cancelBtn.style.display = isEditing ? 'inline-block' : 'none';
+        }
+        
+        async function loadUserSettings() {
+            try {
+                console.log('🔄 Loading user settings for user:', currentUser);
+                
+                if (!currentUser) {
+                    console.log('❌ No current user data available for loading settings');
+                    return;
+                }
+                
+                // Fill profile form with current user data
+                const firstNameInput = document.getElementById('firstName');
+                const lastNameInput = document.getElementById('lastName');
+                const displayNameInput = document.getElementById('displayName');
+                const nicknameInput = document.getElementById('nickname');
+                const phoneInput = document.getElementById('phone');
+                const bioInput = document.getElementById('bio');
+                const birthDateInput = document.getElementById('birthDate');
+                
+                console.log('📝 Setting form values:');
+                if (firstNameInput) {
+                    firstNameInput.value = currentUser.firstName || '';
+                    console.log('   - firstName:', currentUser.firstName);
+                }
+                if (lastNameInput) {
+                    lastNameInput.value = currentUser.lastName || '';
+                    console.log('   - lastName:', currentUser.lastName);
+                }
+                if (displayNameInput) {
+                    displayNameInput.value = currentUser.displayName || '';
+                    console.log('   - displayName:', currentUser.displayName);
+                }
+                if (nicknameInput) {
+                    nicknameInput.value = currentUser.nickname || '';
+                    console.log('   - nickname:', currentUser.nickname);
+                }
+                if (phoneInput) {
+                    phoneInput.value = currentUser.phone || '';
+                    console.log('   - phone:', currentUser.phone);
+                }
+                if (bioInput) {
+                    bioInput.value = currentUser.bio || '';
+                    console.log('   - bio:', currentUser.bio);
+                }
+                if (birthDateInput) {
+                    birthDateInput.value = currentUser.birthDate || '';
+                    console.log('   - birthDate:', currentUser.birthDate);
+                }
+                
+                // Set gender radio buttons
+                if (currentUser.gender) {
+                    const genderRadio = document.getElementById(`gender${currentUser.gender.charAt(0).toUpperCase() + currentUser.gender.slice(1)}`);
+                    if (genderRadio) {
+                        genderRadio.checked = true;
+                        console.log('   - gender:', currentUser.gender);
+                    }
+                }
+                
+                // Load user preferences
+                await loadUserPreferences();
+                
+                // Update partner status
+                updatePartnerStatus();
+                
+                console.log('✅ User settings loaded successfully');
+            } catch (error) {
+                console.error('❌ Load settings error:', error);
+                SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
+            }
+        }
+
+        async function loadUserPreferences() {
+            try {
+                console.log('🔄 Loading user preferences...');
+                showLoadingStatus(true, 'กำลังโหลดการตั้งค่า...');
+                
+                const response = await SIMPLE_API.getUserPreferences(currentUser.id);
+                
+                if (response && response.success) {
+                    const preferences = response.preferences || {};
+                    console.log('✅ Preferences loaded:', preferences);
+                    
+                    // Set notification preferences
+                    setCheckboxValue('notificationChat', preferences.notificationChat);
+                    setCheckboxValue('notificationDiary', preferences.notificationDiary);
+                    setCheckboxValue('notificationPush', preferences.notificationPush);
+                    setCheckboxValue('notificationEmail', preferences.notificationEmail);
+                    
+                    // Set privacy preferences
+                    setSelectValue('diaryDefault', preferences.diaryDefault || 'private');
+                    setSelectValue('profileVisibility', preferences.profileVisibility || 'private');
+                    setCheckboxValue('lastSeenVisible', preferences.lastSeenVisible);
+                    
+                    // Set display preferences
+                    setSelectValue('language', preferences.language || 'th');
+                    setSelectValue('timezone', preferences.timezone || 'Asia/Bangkok');
+                    
+                    // Update current user preferences
+                    currentUser.preferences = preferences;
+                } else {
+                    console.log('⚠️ No preferences found, using defaults');
+                    setDefaultPreferences();
+                }
+                
+                showLoadingStatus(false);
+            } catch (error) {
+                console.error('❌ Error loading preferences:', error);
+                showLoadingStatus(false);
+                setDefaultPreferences();
+                SIMPLE_API.showError('ไม่สามารถโหลดการตั้งค่าได้: ' + error.message);
+            }
+        }
+
+        function setCheckboxValue(id, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.checked = Boolean(value);
+            }
+        }
+
+        function setSelectValue(id, value) {
+            const element = document.getElementById(id);
+            if (element && value) {
+                element.value = value;
+            }
+        }
+
+        function setDefaultPreferences() {
+            // Set default notification preferences
+            setCheckboxValue('notificationChat', true);
+            setCheckboxValue('notificationDiary', true);
+            setCheckboxValue('notificationPush', false);
+            setCheckboxValue('notificationEmail', false);
+            
+            // Set default privacy preferences
+            setSelectValue('diaryDefault', 'private');
+            setSelectValue('profileVisibility', 'private');
+            setCheckboxValue('lastSeenVisible', true);
+            
+            // Set default display preferences
+            setSelectValue('language', 'th');
+            setSelectValue('timezone', 'Asia/Bangkok');
+        }
+        // Update user info in overview card
+        function updateUserOverview() {
+            console.log('🔄 Updating user overview with:', currentUser);
+            
+            if (!currentUser) {
+                console.log('❌ No currentUser data available');
+                document.getElementById('userDisplayName').textContent = 'ไม่พบข้อมูลผู้ใช้';
+                document.getElementById('userEmail').textContent = 'ไม่ระบุอีเมล';
+                document.getElementById('userUsername').textContent = 'ไม่ระบุ';
+                return;
+            }
+            
+            // Debug: Show all available user properties
+            console.log('🔍 Available user properties:', Object.keys(currentUser));
+            console.log('📊 User data details:');
+            console.log('   - id:', currentUser.id);
+            console.log('   - username:', currentUser.username);
+            console.log('   - email:', currentUser.email);
+            console.log('   - firstName:', currentUser.firstName);
+            console.log('   - lastName:', currentUser.lastName);
+            console.log('   - displayName:', currentUser.displayName);
+            
+            // Main card overview
+            const displayNameEl = document.getElementById('userDisplayName');
+            const emailEl = document.getElementById('userEmail');
+            const usernameEl = document.getElementById('userUsername');
+            const joinDateEl = document.getElementById('userJoinDate');
+            
+            console.log('📋 Found overview elements:', { displayNameEl, emailEl, usernameEl, joinDateEl });
+            
+            if (displayNameEl) {
+                const displayName = currentUser.displayName || 
+                                  (currentUser.firstName && currentUser.lastName ? 
+                                   `${currentUser.firstName} ${currentUser.lastName}` : 
+                                   currentUser.firstName) || 
+                                  currentUser.username || 'ผู้ใช้งาน';
+                displayNameEl.textContent = displayName;
+                console.log(`✅ Set displayName to: ${displayName}`);
+            }
+            
+            if (emailEl) {
+                const email = currentUser.email || 'ไม่ระบุอีเมล';
+                emailEl.textContent = email;
+                console.log(`✅ Set email to: ${email}`);
+            }
+            
+            if (usernameEl) {
+                const username = currentUser.username || 'ไม่ระบุ';
+                usernameEl.textContent = username;
+                console.log(`✅ Set username to: ${username}`);
+            }
+            
+            if (joinDateEl) {
+                let joinDate;
+                if (currentUser.created_at) {
+                    joinDate = new Date(currentUser.created_at);
+                } else if (currentUser.createdAt) {
+                    joinDate = new Date(currentUser.createdAt);
+                } else if (currentUser.dateJoined) {
+                    joinDate = new Date(currentUser.dateJoined);
+                } else {
+                    joinDate = new Date();
+                }
+                
+                const formattedDate = joinDate.toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long', 
+                    day: 'numeric'
+                });
+                joinDateEl.textContent = formattedDate;
+                console.log(`✅ Set join date to: ${formattedDate}`);
+            }
+            
+            // Security section (current email)
+            const currentEmailDisplay = document.getElementById('currentEmailDisplay');
+            if (currentEmailDisplay) {
+                const currentEmail = currentUser.email || 'ไม่ระบุอีเมล';
+                currentEmailDisplay.textContent = currentEmail;
+                console.log(`✅ Set current email display to: ${currentEmail}`);
+            }
+            
+            console.log('✅ User overview update completed');
+        }
+
+        // Update quick info sidebar
+        function updateQuickInfo() {
+            console.log('🔄 Updating quick info sidebar with:', currentUser);
+            
+            if (!currentUser) {
+                console.log('❌ No currentUser data for quick info');
+                return;
+            }
+            
+            const genderEl = document.getElementById('userGender');
+            const phoneEl = document.getElementById('userPhone');
+            const birthDateEl = document.getElementById('userBirthDate');
+            const timezoneEl = document.getElementById('userTimezone');
+            const languageEl = document.getElementById('userLanguage');
+            
+            console.log('📋 Found quick info elements:', { genderEl, phoneEl, birthDateEl, timezoneEl, languageEl });
+            
+            if (genderEl) {
+                const gender = currentUser.gender ? mapGender(currentUser.gender) : 'ไม่ระบุ';
+                genderEl.textContent = gender;
+                console.log(`✅ Set gender to: ${gender}`);
+            }
+            
+            if (phoneEl) {
+                const phone = currentUser.phone || 'ไม่ระบุ';
+                phoneEl.textContent = phone;
+                console.log(`✅ Set phone to: ${phone}`);
+            }
+            
+            if (birthDateEl) {
+                const birthDate = currentUser.birthDate ? formatDate(currentUser.birthDate) : 'ไม่ระบุ';
+                birthDateEl.textContent = birthDate;
+                console.log(`✅ Set birth date to: ${birthDate}`);
+            }
+            
+            if (timezoneEl) {
+                const timezone = currentUser.timezone ? mapTimezone(currentUser.timezone) : 'เวลาไทย';
+                timezoneEl.textContent = timezone;
+                console.log(`✅ Set timezone to: ${timezone}`);
+            }
+            
+            if (languageEl) {
+                const language = currentUser.language ? mapLanguage(currentUser.language) : 'ไทย';
+                languageEl.textContent = language;
+                console.log(`✅ Set language to: ${language}`);
+            }
+            
+            console.log('✅ Quick info update completed');
+        }
+
+        function mapGender(gender) {
+            if (gender === 'male') return 'ชาย';
+            if (gender === 'female') return 'หญิง';
+            if (gender === 'other') return 'อื่นๆ';
+            return 'ไม่ระบุ';
+        }
+        function mapTimezone(tz) {
+            if (tz === 'Asia/Bangkok') return 'เวลาไทย';
+            if (tz === 'UTC') return 'UTC (GMT+0)';
+            return tz;
+        }
+        function mapLanguage(lang) {
+            if (lang === 'th') return 'ไทย';
+            if (lang === 'en') return 'English';
+            return lang;
+        }
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        
+        function updatePartnerStatus() {
+            console.log('🔄 Updating partner status...');
+            
+            // Update overview card partnership status
+            const partnershipStatus = document.getElementById('partnershipStatus');
+            if (partnershipStatus) {
+                if (currentUser.partner) {
+                    partnershipStatus.innerHTML = `
+                        <span class="partnership-badge connected">
+                            <i class="bi bi-heart-fill"></i>
+                            เชื่อมต่อกับ ${currentUser.partner.displayName || currentUser.partner.firstName || 'คู่รัก'}
+                        </span>
+                    `;
+                } else {
+                    partnershipStatus.innerHTML = `
+                        <span class="partnership-badge none">
+                            <i class="bi bi-heart"></i>
+                            ยังไม่มีคู่รัก
+                        </span>
+                    `;
+                }
+            }
+            
+            // Update quick stats if available
+            updateQuickStats();
+            
+            console.log('✅ Partner status updated');
+        }
+
+        function updateQuickStats() {
+            // Load real data from all managers
+            loadRealQuickStats();
+        }
+
+        async function loadRealQuickStats() {
+            try {
+                console.log('📊 Loading real quick stats from API...');
+                
+                if (!currentUser || !currentUser.id) {
+                    console.log('❌ No current user for stats loading');
+                    return;
+                }
+
+                // Get stats from API endpoints directly
+                const [diaryStats, todoStats, pomodoroStats, dashboardData] = await Promise.all([
+                    SIMPLE_API.getDiaryStats(currentUser.id).catch(e => {
+                        console.log('📝 Diary stats error:', e.message);
+                        return { data: { total: 0 } };
+                    }),
+                    SIMPLE_API.getTodoStats(currentUser.id).catch(e => {
+                        console.log('✅ Todo stats error:', e.message);
+                        return { data: { total: 0, completed: 0 } };
+                    }),
+                    SIMPLE_API.getPomodoroStats(currentUser.id).catch(e => {
+                        console.log('🍅 Pomodoro stats error:', e.message);
+                        return { data: { totalSessions: 0 } };
+                    }),
+                    SIMPLE_API.getDashboardData(currentUser.id).catch(e => {
+                        console.log('📊 Dashboard data error:', e.message);
+                        return null;
+                    })
+                ]);
+
+                console.log('📊 Stats loaded:', { diaryStats, todoStats, pomodoroStats, dashboardData });
+
+                // Update diary count
+                const statCards = document.querySelectorAll('.stat-card');
+                if (statCards.length >= 3) {
+                    // Update diary count
+                    const diaryCard = statCards[0]?.querySelector('p');
+                    if (diaryCard) {
+                        const diaryCount = diaryStats?.data?.total || diaryStats?.total || 0;
+                        diaryCard.textContent = `${diaryCount} บันทึก`;
+                        console.log(`📝 Diary count: ${diaryCount}`);
+                    }
+                    
+                    // Update message count (from chat with partner)
+                    const messageCard = statCards[1]?.querySelector('p');
+                    if (messageCard) {
+                        let messageCount = 0;
+                        if (currentUser.partner) {
+                            try {
+                                const messageData = await SIMPLE_API.getMessagesWithPartner(currentUser.id, currentUser.partner.id);
+                                messageCount = messageData?.data?.length || messageData?.messages?.length || 0;
+                            } catch (error) {
+                                console.log('💬 Message count error:', error.message);
+                            }
+                        }
+                        messageCard.textContent = `${messageCount} ข้อความ`;
+                        console.log(`💬 Message count: ${messageCount}`);
+                    }
+                    
+                    // Update days together
+                    const daysCard = statCards[2]?.querySelector('p');
+                    if (daysCard && currentUser.partner) {
+                        const connectedDate = new Date(currentUser.partner.connectedAt || currentUser.partner.createdAt || new Date());
+                        const daysTogether = Math.floor((new Date() - connectedDate) / (1000 * 60 * 60 * 24));
+                        daysCard.textContent = `${daysTogether} วัน`;
+                        console.log(`💕 Days together: ${daysTogether}`);
+                    } else if (daysCard) {
+                        daysCard.textContent = '- วัน';
+                    }
+                }
+
+                console.log('✅ Quick stats updated with real data');
+            } catch (error) {
+                console.error('❌ Failed to load real quick stats:', error);
+                // Fallback to placeholder data
+                const statCards = document.querySelectorAll('.stat-card');
+                if (statCards.length >= 3) {
+                    statCards[0]?.querySelector('p') && (statCards[0].querySelector('p').textContent = '0 บันทึก');
+                    statCards[1]?.querySelector('p') && (statCards[1].querySelector('p').textContent = '0 ข้อความ');
+                    statCards[2]?.querySelector('p') && (statCards[2].querySelector('p').textContent = '- วัน');
+                }
+            }
+        }
+
+        // Navigation functions
+        function navigateToPage(pageName) {
+            console.log(`🧭 Navigating to: ${pageName}`);
+            try {
+                // Check if page exists (basic validation)
+                const validPages = ['chat.html', 'neko-chat.html', 'diary.html', 'todo.html', 'pomodoro.html', 'math.html', 'dashboard.html'];
+                
+                if (!validPages.includes(pageName)) {
+                    console.warn(`⚠️ Invalid page: ${pageName}`);
+                    showNotification('หน้าที่ระบุไม่ถูกต้อง', 'warning');
+                    return;
+                }
+
+                // Navigate to page
+                window.location.href = pageName;
+            } catch (error) {
+                console.error('❌ Navigation error:', error);
+                showNotification('เกิดข้อผิดพลาดในการนำทาง', 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+
+        async function handleUpdatePreferences(event) {
+            event.preventDefault();
+            
+            try {
+                console.log('🔄 Updating preferences...');
+                
+                // Get form data
+                const preferencesData = {
+                    // Notification preferences
+                    notificationChat: document.getElementById('notificationChat')?.checked || false,
+                    notificationDiary: document.getElementById('notificationDiary')?.checked || false,
+                    notificationPush: document.getElementById('notificationPush')?.checked || false,
+                    notificationEmail: document.getElementById('notificationEmail')?.checked || false,
+                    
+                    // Privacy preferences
+                    diaryDefault: document.getElementById('diaryDefault')?.value || 'private',
+                    profileVisibility: document.getElementById('profileVisibility')?.value || 'private',
+                    lastSeenVisible: document.getElementById('lastSeenVisible')?.checked || false,
+                    
+                    // Display preferences
+                    language: document.getElementById('language')?.value || 'th',
+                    timezone: document.getElementById('timezone')?.value || 'Asia/Bangkok'
+                };
+                
+                console.log('📋 Preferences data:', preferencesData);
+                
+                const response = await SIMPLE_API.updatePreferences(currentUser.id, preferencesData);
+                
+                if (response && response.success) {
+                    // Update current user preferences
+                    currentUser.preferences = preferencesData;
+                    SIMPLE_API.updateCurrentUser(currentUser);
+                    
+                    // Update UI
+                    updateQuickInfo();
+                    
+                    // Exit edit mode
+                    toggleEditMode('preferences', false);
+                    
+                    SIMPLE_API.showSuccess('อัปเดตการตั้งค่าเรียบร้อย');
+                } else {
+                    throw new Error(response?.message || 'Failed to update preferences');
+                }
+                
+            } catch (error) {
+                console.error('❌ Update preferences error:', error);
+                SIMPLE_API.showError('ไม่สามารถอัปเดตการตั้งค่าได้: ' + error.message);
+            }
+        }
+
+        async function handleUpdateProfile(event) {
+            event.preventDefault();
+            
+            try {
+                // Get form data
+                const firstName = document.getElementById('firstName').value;
+                const lastName = document.getElementById('lastName').value;
+                const displayName = document.getElementById('displayName').value;
+                const nickname = document.getElementById('nickname').value;
+                const phone = document.getElementById('phone').value;
+                const bio = document.getElementById('bio').value;
+                const birthDate = document.getElementById('birthDate').value;
+                
+                // Get gender
+                let gender = '';
+                const genderInputs = document.querySelectorAll('input[name="gender"]');
+                for (const input of genderInputs) {
+                    if (input.checked) {
+                        gender = input.value;
+                        break;
+                    }
+                }
+                
+                const updateData = {
+                    firstName,
+                    lastName,
+                    displayName,
+                    nickname,
+                    phone,
+                    bio,
+                    birthDate,
+                    gender
+                };
+                
+                const response = await SIMPLE_API.updateProfile(currentUser.id, updateData);
+                
+                if (response && response.success) {
+                    // Update current user data
+                    currentUser = {...currentUser, ...updateData};
+                    SIMPLE_API.updateCurrentUser(currentUser);
+                    
+                    // Update UI
+                    updateNavigationBar();
+                    updateUserOverview();
+                    updateQuickInfo();
+                    
+                    // Exit edit mode
+                    toggleEditMode('basic', false);
+                    
+                    SIMPLE_API.showSuccess('อัปเดตโปรไฟล์เรียบร้อย');
+                } else {
+                    throw new Error(response?.message || 'Failed to update profile');
+                }
+                
+            } catch (error) {
+                console.error('Update profile error:', error);
+                SIMPLE_API.showError('ไม่สามารถอัปเดตโปรไฟล์ได้: ' + error.message);
+            }
+        }
+        
+        async function handleChangePassword(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            const currentPassword = formData.get('currentPassword');
+            const newPassword = formData.get('newPassword');
+            const confirmPassword = formData.get('confirmPassword');
+            
+            // Validate passwords
+            if (newPassword !== confirmPassword) {
+                SIMPLE_API.showError('รหัสผ่านใหม่ไม่ตรงกัน');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                SIMPLE_API.showError('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+                return;
+            }
+            
+            try {
+                const passwordData = {
+                    currentPassword: currentPassword,
+                    newPassword: newPassword
+                };
+                
+                const response = await SIMPLE_API.changePassword(currentUser.id, passwordData);
+                
+                if (response && response.success) {
+                    // Reset form and hide it
+                    form.reset();
+                    document.getElementById('changePasswordForm').style.display = 'none';
+                    
+                    SIMPLE_API.showSuccess('เปลี่ยนรหัสผ่านเรียบร้อย');
+                } else {
+                    throw new Error(response?.message || 'Failed to change password');
+                }
+                
+            } catch (error) {
+                console.error('Change password error:', error);
+                SIMPLE_API.showError('ไม่สามารถเปลี่ยนรหัสผ่านได้: ' + error.message);
+            }
+        }
+
+        async function handleChangeEmail(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            const newEmail = formData.get('newEmail');
+            const currentPassword = formData.get('currentPasswordEmail');
+            
+            // Validate email
+            if (!newEmail || !isValidEmail(newEmail)) {
+                SIMPLE_API.showError('กรุณาใส่อีเมลที่ถูกต้อง');
+                return;
+            }
+            
+            if (!currentPassword) {
+                SIMPLE_API.showError('กรุณาใส่รหัสผ่านปัจจุบัน');
+                return;
+            }
+            
+            try {
+                const emailData = {
+                    newEmail: newEmail,
+                    currentPassword: currentPassword
+                };
+                
+                const response = await SIMPLE_API.changeEmail(currentUser.id, emailData);
+                
+                if (response && response.success) {
+                    // Update current user email
+                    currentUser.email = newEmail;
+                    SIMPLE_API.updateCurrentUser(currentUser);
+                    
+                    // Update UI
+                    updateUserOverview();
+                    
+                    // Reset form and hide it
+                    form.reset();
+                    document.getElementById('changeEmailForm').style.display = 'none';
+                    
+                    SIMPLE_API.showSuccess('เปลี่ยนอีเมลเรียบร้อย');
+                } else {
+                    throw new Error(response?.message || 'Failed to change email');
+                }
+                
+            } catch (error) {
+                console.error('Change email error:', error);
+                SIMPLE_API.showError('ไม่สามารถเปลี่ยนอีเมลได้: ' + error.message);
+            }
+        }
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function updatePasswordStrength() {
+            const password = document.getElementById('newPassword').value;
+            const strengthBar = document.getElementById('passwordStrengthBar');
+            const strengthText = document.getElementById('passwordStrengthText');
+            
+            if (!password) {
+                strengthBar.style.width = '0%';
+                strengthBar.className = 'progress-bar';
+                strengthText.textContent = 'ความแข็งแกร่งของรหัสผ่าน';
+                return;
+            }
+            
+            let strength = 0;
+            let strengthLabel = '';
+            let strengthClass = '';
+            
+            // Check password criteria
+            if (password.length >= 8) strength++;
+            if (/[a-z]/.test(password)) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^A-Za-z0-9]/.test(password)) strength++;
+            
+            // Set strength level
+            switch (strength) {
+                case 0:
+                case 1:
+                    strengthLabel = 'อ่อนมาก';
+                    strengthClass = 'bg-danger';
+                    break;
+                case 2:
+                    strengthLabel = 'อ่อน';
+                    strengthClass = 'bg-warning';
+                    break;
+                case 3:
+                    strengthLabel = 'ปานกลาง';
+                    strengthClass = 'bg-info';
+                    break;
+                case 4:
+                    strengthLabel = 'แข็งแกร่ง';
+                    strengthClass = 'bg-success';
+                    break;
+                case 5:
+                    strengthLabel = 'แข็งแกร่งมาก';
+                    strengthClass = 'bg-success';
+                    break;
+            }
+            
+            const percentage = (strength / 5) * 100;
+            strengthBar.style.width = `${percentage}%`;
+            strengthBar.className = `progress-bar ${strengthClass}`;
+            strengthText.textContent = `ความแข็งแกร่ง: ${strengthLabel}`;
+        }
+        
+        function setupPartnerConnection() {
+            // Setup connect partner button in sidebar
+            const partnerInfo = document.getElementById('partnerInfo');
+            if (partnerInfo && !currentUser.partner) {
+                partnerInfo.innerHTML = `
+                    <i class="bi bi-heart-break display-6 text-muted mb-3"></i>
+                    <p class="text-muted mb-3">ยังไม่มีคู่รัก</p>
+                    <div id="partnerConnectForm">
+                        <div class="mb-3">
+                            <input type="text" class="form-control" id="partnerCodeInput" placeholder="ใส่รหัสคู่รัก" maxlength="8">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="handleConnectPartner()">
+                            <i class="bi bi-plus me-1"></i>เชื่อมต่อกับคู่รัก
+                        </button>
+                    </div>
+                `;
+            }
+            
+            // If user has partner, show disconnect option
+            if (currentUser.partner) {
+                updatePartnerInfo();
+            }
+        }
+
+        function updatePartnerInfo() {
+            const partnerInfo = document.getElementById('partnerInfo');
+            if (partnerInfo && currentUser.partner) {
+                partnerInfo.innerHTML = `
+                    <div class="text-center">
+                        <i class="bi bi-heart-fill display-6 text-danger mb-3"></i>
+                        <h6 class="mb-2">${currentUser.partner.displayName || currentUser.partner.firstName || 'คู่รัก'}</h6>
+                        <p class="text-muted small mb-3">@${currentUser.partner.username}</p>
+                        <p class="text-muted small mb-3">เชื่อมต่อเมื่อ: ${formatDate(currentUser.partner.connectedAt || new Date())}</p>
+                        <button class="btn btn-outline-danger btn-sm" onclick="handleDisconnectPartner()">
+                            <i class="bi bi-heart-break me-1"></i>ยกเลิกการเชื่อมต่อ
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        async function handleConnectPartner() {
+            const partnerCodeInput = document.getElementById('partnerCodeInput');
+            const partnerCode = partnerCodeInput?.value?.trim();
+            
+            if (!partnerCode) {
+                SIMPLE_API.showError('กรุณาใส่รหัสคู่รัก');
+                return;
+            }
+            
+            if (partnerCode.length !== 8) {
+                SIMPLE_API.showError('รหัสคู่รักต้องมี 8 ตัวอักษร');
+                return;
+            }
+            
+            try {
+                console.log('🔄 Connecting to partner with code:', partnerCode);
+                
+                const response = await SIMPLE_API.connectPartner(currentUser.id, partnerCode);
+                
+                if (response && response.success) {
+                    // Update current user data
+                    currentUser.partner = response.partner;
+                    SIMPLE_API.updateCurrentUser(currentUser);
+                    
+                    // Update UI
+                    updatePartnerInfo();
+                    updatePartnerStatus();
+                    
+                    SIMPLE_API.showSuccess('เชื่อมต่อกับคู่รักเรียบร้อย');
+                } else {
+                    throw new Error(response?.message || 'Failed to connect partner');
+                }
+                
+            } catch (error) {
+                console.error('Connect partner error:', error);
+                SIMPLE_API.showError('ไม่สามารถเชื่อมต่อกับคู่รักได้: ' + error.message);
+            }
+        }
+
+        async function handleDisconnectPartner() {
+            if (!confirm('คุณต้องการยกเลิกการเชื่อมต่อกับคู่รักใช่หรือไม่?\nการกระทำนี้จะส่งผลกับคู่รักของคุณด้วย')) {
+                return;
+            }
+            
+            try {
+                console.log('🔄 Disconnecting from partner...');
+                
+                const response = await SIMPLE_API.disconnectPartner(currentUser.id);
+                
+                if (response && response.success) {
+                    // Update current user data
+                    currentUser.partner = null;
+                    SIMPLE_API.updateCurrentUser(currentUser);
+                    
+                    // Update UI
+                    setupPartnerConnection();
+                    updatePartnerStatus();
+                    
+                    SIMPLE_API.showSuccess('ยกเลิกการเชื่อมต่อกับคู่รักเรียบร้อย');
+                } else {
+                    throw new Error(response?.message || 'Failed to disconnect partner');
+                }
+                
+            } catch (error) {
+                console.error('Disconnect partner error:', error);
+                SIMPLE_API.showError('ไม่สามารถยกเลิกการเชื่อมต่อได้: ' + error.message);
+            }
+        }
+        
+        async function handleDeleteAccount() {
+            const confirmation = prompt('กรุณาพิมพ์ "ลบบัญชี" เพื่อยืนยันการลบบัญชี');
+            
+            if (confirmation !== 'ลบบัญชี') {
+                SIMPLE_API.showError('การยืนยันไม่ถูกต้อง');
+                return;
+            }
+            
+            if (!confirm('คุณแน่ใจใช่หรือไม่ที่ต้องการลบบัญชี? การกระทำนี้ไม่สามารถยกเลิกได้')) return;
+            
+            try {
+                await SIMPLE_API.deleteAccount(currentUser.id);
+                
+                // Logout and redirect
+                SIMPLE_API.logout();
+                
+            } catch (error) {
+                console.error('Delete account error:', error);
+                SIMPLE_API.showError('ไม่สามารถลบบัญชีได้');
+            }
+        }
+        
+        // Navigation functions
+        function goBack() {
+            window.location.href = 'dashboard.html';
+        }
+        
+        function handleLogout() {
+            SIMPLE_API.logout();
+        }
+        
+        // Add missing navigation bar update
+        function updateNavigationBar() {
+            const userNameNav = document.getElementById('userName');
+            if (userNameNav && currentUser) {
+                userNameNav.textContent = currentUser.displayName || currentUser.username || 'ผู้ใช้';
+            }
+        }
+        
+        // Toggle form visibility functions (for backwards compatibility with HTML onclick)
+        function toggleEmailFormVisibility() {
+            const form = document.getElementById('changeEmailForm');
+            if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function togglePasswordFormVisibility() {
+            const form = document.getElementById('changePasswordForm');
+            if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+    </script>
 </body>
 </html>

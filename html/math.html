@@ -466,12 +466,576 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/config.js"></script>
-    <script src="../js/user-info.js"></script>
+    <script src="../js/simple-api.js"></script>
     <script src="../js/analytics.js"></script>
-    <script src="../js/presence.js"></script>
-    <script src="../js/math-auth-fix.js"></script>
-    <script src="../js/math.js"></script>
+    
+    <script>
+        // Math Problems functionality
+        let currentUser = null;
+        let currentProblem = null;
+        let problemStartTime = null;
+        let correctCount = 0;
+        let incorrectCount = 0;
+        let totalProblems = 0;
+        let bestTime = null;
+        let recentProblems = [];
+        let score = 0;
+        let streak = 0;
+        let problemCount = 0;
+        let difficulty = 'easy';
+        let gameMode = 'practice';
+
+        // Settings
+        let activeOperations = ['+', '-'];
+        let difficultyRanges = {
+            easy: { min: 1, max: 10 },
+            medium: { min: 1, max: 50 },
+            hard: { min: 1, max: 100 }
+        };
+
+        // Initialize math page
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                currentUser = SIMPLE_API.getCurrentUser();
+                if (!currentUser) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                initializeMath();
+                await loadMathStats();
+                generateNewProblem();
+                
+            } catch (error) {
+                console.error('Math page initialization error:', error);
+                SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดเกมคณิตศาสตร์');
+            }
+        });
+
+        function initializeMath() {
+            // Setup answer form
+            const answerForm = document.getElementById('answerForm');
+            if (answerForm) {
+                answerForm.addEventListener('submit', handleAnswer);
+            }
+
+            // Setup settings
+            const difficultySelect = document.getElementById('difficulty');
+            if (difficultySelect) {
+                difficultySelect.addEventListener('change', function() {
+                    difficulty = this.value;
+                    generateNewProblem();
+                });
+            }
+
+            // Setup operation toggles
+            const operationButtons = document.querySelectorAll('.operation-btn');
+            operationButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    updateActiveOperations();
+                });
+            });
+
+            // Setup new problem button
+            const newProblemBtn = document.getElementById('newProblem');
+            if (newProblemBtn) {
+                newProblemBtn.addEventListener('click', generateNewProblem);
+            }
+
+            updateUserDisplay();
+        }
+
+        function updateUserDisplay() {
+            const userName = document.getElementById('userName');
+            if (userName && currentUser) {
+                userName.textContent = `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.username || 'ผู้ใช้';
+            }
+        }
+
+        function updateActiveOperations() {
+            activeOperations = [];
+            document.querySelectorAll('.operation-btn.active').forEach(btn => {
+                activeOperations.push(btn.dataset.operation);
+            });
+            
+            if (activeOperations.length === 0) {
+                activeOperations = ['+'];
+                document.querySelector('[data-operation="+"]').classList.add('active');
+            }
+        }
+
+        function generateNewProblem() {
+            if (activeOperations.length === 0) {
+                activeOperations = ['+'];
+            }
+
+            const operation = activeOperations[Math.floor(Math.random() * activeOperations.length)];
+            const range = difficultyRanges[difficulty];
+            
+            let num1 = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+            let num2 = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+            let answer;
+
+            switch (operation) {
+                case '+':
+                    answer = num1 + num2;
+                    break;
+                case '-':
+                    // Make sure result is positive
+                    if (num1 < num2) [num1, num2] = [num2, num1];
+                    answer = num1 - num2;
+                    break;
+                case '*':
+                    // Keep numbers smaller for multiplication
+                    num1 = Math.floor(Math.random() * Math.min(range.max/2, 12)) + 1;
+                    num2 = Math.floor(Math.random() * Math.min(range.max/2, 12)) + 1;
+                    answer = num1 * num2;
+                    break;
+                case '/':
+                    // Generate division that results in whole numbers
+                    answer = Math.floor(Math.random() * Math.min(range.max/2, 12)) + 1;
+                    num2 = Math.floor(Math.random() * Math.min(range.max/2, 12)) + 1;
+                    num1 = answer * num2;
+                    break;
+            }
+
+            currentProblem = {
+                num1: num1,
+                num2: num2,
+                operation: operation,
+                answer: answer,
+                id: Date.now()
+            };
+
+            problemStartTime = Date.now();
+
+            // Update UI
+            document.getElementById('problemDisplay').innerHTML = 
+                `${num1} ${operation} ${num2} = ?`;
+            document.getElementById('answerInput').value = '';
+            document.getElementById('answerInput').focus();
+            
+            // Clear previous feedback
+            const feedback = document.getElementById('feedback');
+            if (feedback) {
+                feedback.innerHTML = '';
+                feedback.className = 'mt-3';
+            }
+        }
+
+        function handleAnswer(e) {
+            e.preventDefault();
+            
+            const userAnswer = parseInt(document.getElementById('answerInput').value);
+            const timeTaken = Date.now() - problemStartTime;
+            
+            if (isNaN(userAnswer)) {
+                showFeedback('กรุณากรอกตัวเลข', 'warning');
+                return;
+            }
+
+            const isCorrect = userAnswer === currentProblem.answer;
+            totalProblems++;
+
+            if (isCorrect) {
+                correctCount++;
+                streak++;
+                score += Math.max(100 - Math.floor(timeTaken / 1000) * 10, 10);
+                
+                if (!bestTime || timeTaken < bestTime) {
+                    bestTime = timeTaken;
+                }
+
+                showFeedback(`ถูกต้อง! 🎉 (${(timeTaken / 1000).toFixed(1)} วินาที)`, 'success');
+            } else {
+                incorrectCount++;
+                streak = 0;
+                showFeedback(`ไม่ถูกต้อง 😔 คำตอบที่ถูกคือ ${currentProblem.answer}`, 'danger');
+            }
+
+            // Store problem in recent history
+            recentProblems.unshift({
+                ...currentProblem,
+                userAnswer: userAnswer,
+                correct: isCorrect,
+                timeTaken: timeTaken
+            });
+
+            if (recentProblems.length > 10) {
+                recentProblems = recentProblems.slice(0, 10);
+            }
+
+            updateStats();
+            
+            // Auto-generate new problem after 2 seconds
+            setTimeout(() => {
+                generateNewProblem();
+            }, 2000);
+        }
+
+        function showFeedback(message, type) {
+            const feedback = document.getElementById('feedback');
+            if (feedback) {
+                feedback.innerHTML = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                    </div>
+                `;
+            }
+        }
+
+        function updateStats() {
+            const accuracy = totalProblems > 0 ? Math.round((correctCount / totalProblems) * 100) : 0;
+            
+            document.getElementById('correctCount').textContent = correctCount;
+            document.getElementById('incorrectCount').textContent = incorrectCount;
+            document.getElementById('accuracy').textContent = accuracy;
+            document.getElementById('streak').textContent = streak;
+            document.getElementById('score').textContent = score;
+            
+            if (bestTime) {
+                document.getElementById('bestTime').textContent = (bestTime / 1000).toFixed(1);
+            }
+        }
+
+        async function loadMathStats() {
+            try {
+                // Load user stats from API or localStorage
+                const stats = JSON.parse(localStorage.getItem(`mathStats_${currentUser.id}`)) || {};
+                
+                correctCount = stats.correctCount || 0;
+                incorrectCount = stats.incorrectCount || 0;
+                totalProblems = stats.totalProblems || 0;
+                bestTime = stats.bestTime || null;
+                score = stats.score || 0;
+                
+                updateStats();
+            } catch (error) {
+                console.error('Error loading math stats:', error);
+            }
+        }
+
+        function saveMathStats() {
+            try {
+                const stats = {
+                    correctCount,
+                    incorrectCount,
+                    totalProblems,
+                    bestTime,
+                    score,
+                    lastPlayed: Date.now()
+                };
+                
+                localStorage.setItem(`mathStats_${currentUser.id}`, JSON.stringify(stats));
+            } catch (error) {
+                console.error('Error saving math stats:', error);
+            }
+        }
+
+        function resetStats() {
+            if (confirm('คุณต้องการรีเซ็ตสถิติทั้งหมดหรือไม่?')) {
+                correctCount = 0;
+                incorrectCount = 0;
+                totalProblems = 0;
+                bestTime = null;
+                score = 0;
+                streak = 0;
+                recentProblems = [];
+                
+                updateStats();
+                saveMathStats();
+                
+                SIMPLE_API.showSuccess('รีเซ็ตสถิติเรียบร้อย');
+            }
+        }
+
+        // Navigation functions
+        function showProfile() {
+            window.location.href = 'user-info.html';
+        }
+
+        async function logout() {
+            if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
+                saveMathStats();
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Save stats periodically
+        setInterval(saveMathStats, 30000); // Save every 30 seconds
+
+        // Save stats before page unload
+        window.addEventListener('beforeunload', saveMathStats);
+
+        // Make functions globally available
+        window.generateNewProblem = generateNewProblem;
+        window.resetStats = resetStats;
+        window.logout = logout;
+        window.showProfile = showProfile;
+
+        console.log('✅ หน้าเกมคณิตศาสตร์โหลดเสร็จแล้ว');
+    </script>
+                SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดหน้าคณิตศาสตร์');
+            }
+        });
+        
+        function setupMathUI() {
+            // Setup answer form
+            const answerForm = document.getElementById('answerForm');
+            if (answerForm) {
+                answerForm.addEventListener('submit', handleAnswer);
+            }
+            
+            // Setup answer input
+            const answerInput = document.getElementById('answerInput');
+            if (answerInput) {
+                answerInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAnswer(e);
+                    }
+                });
+            }
+            
+            // Setup difficulty buttons
+            const difficultyButtons = document.querySelectorAll('[data-difficulty]');
+            difficultyButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    difficulty = e.target.dataset.difficulty;
+                    updateDifficultyButtons();
+                    generateNewProblem();
+                });
+            });
+            
+            // Setup game mode buttons
+            const gameModeButtons = document.querySelectorAll('[data-mode]');
+            gameModeButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    gameMode = e.target.dataset.mode;
+                    updateGameModeButtons();
+                    resetGame();
+                });
+            });
+            
+            // Setup control buttons
+            const newProblemBtn = document.getElementById('newProblemBtn');
+            const resetGameBtn = document.getElementById('resetGameBtn');
+            
+            if (newProblemBtn) newProblemBtn.addEventListener('click', generateNewProblem);
+            if (resetGameBtn) resetGameBtn.addEventListener('click', resetGame);
+            
+            // Initial UI update
+            updateDifficultyButtons();
+            updateGameModeButtons();
+            updateStats();
+        }
+        
+        async function loadMathStats() {
+            try {
+                const response = await SIMPLE_API.getMathStats(currentUser.id);
+                const stats = response.data || {};
+                
+                // Update UI with saved stats
+                const totalProblemsEl = document.getElementById('totalProblems');
+                const correctAnswersEl = document.getElementById('correctAnswers');
+                const accuracyEl = document.getElementById('accuracy');
+                
+                if (totalProblemsEl) totalProblemsEl.textContent = stats.totalProblems || 0;
+                if (correctAnswersEl) correctAnswersEl.textContent = stats.correctAnswers || 0;
+                if (accuracyEl) {
+                    const accuracy = stats.totalProblems > 0 
+                        ? Math.round((stats.correctAnswers / stats.totalProblems) * 100)
+                        : 0;
+                    accuracyEl.textContent = `${accuracy}%`;
+                }
+                
+            } catch (error) {
+                console.error('Load math stats error:', error);
+                // Continue without stats if API fails
+            }
+        }
+        
+        function generateNewProblem() {
+            const operations = ['+', '-', '*', '/'];
+            const operation = operations[Math.floor(Math.random() * operations.length)];
+            
+            let num1, num2, answer;
+            
+            switch (difficulty) {
+                case 'easy':
+                    num1 = Math.floor(Math.random() * 10) + 1;
+                    num2 = Math.floor(Math.random() * 10) + 1;
+                    break;
+                case 'medium':
+                    num1 = Math.floor(Math.random() * 50) + 1;
+                    num2 = Math.floor(Math.random() * 20) + 1;
+                    break;
+                case 'hard':
+                    num1 = Math.floor(Math.random() * 100) + 1;
+                    num2 = Math.floor(Math.random() * 50) + 1;
+                    break;
+            }
+            
+            // Calculate answer based on operation
+            switch (operation) {
+                case '+':
+                    answer = num1 + num2;
+                    break;
+                case '-':
+                    // Ensure positive result
+                    if (num1 < num2) [num1, num2] = [num2, num1];
+                    answer = num1 - num2;
+                    break;
+                case '*':
+                    answer = num1 * num2;
+                    break;
+                case '/':
+                    // Ensure whole number result
+                    answer = num1;
+                    num1 = answer * num2;
+                    break;
+            }
+            
+            currentProblem = {
+                num1,
+                num2,
+                operation,
+                answer
+            };
+            
+            // Update UI
+            displayProblem();
+            
+            // Clear previous answer
+            const answerInput = document.getElementById('answerInput');
+            if (answerInput) {
+                answerInput.value = '';
+                answerInput.focus();
+            }
+        }
+        
+        function displayProblem() {
+            const problemEl = document.getElementById('problemDisplay');
+            if (problemEl && currentProblem) {
+                problemEl.textContent = `${currentProblem.num1} ${currentProblem.operation} ${currentProblem.num2} = ?`;
+            }
+        }
+        
+        async function handleAnswer(event) {
+            event.preventDefault();
+            
+            const answerInput = document.getElementById('answerInput');
+            if (!answerInput || !currentProblem) return;
+            
+            const userAnswer = parseInt(answerInput.value);
+            const isCorrect = userAnswer === currentProblem.answer;
+            
+            try {
+                // Save problem result
+                const problemData = {
+                    userId: currentUser.id,
+                    problem: `${currentProblem.num1} ${currentProblem.operation} ${currentProblem.num2}`,
+                    correctAnswer: currentProblem.answer,
+                    userAnswer: userAnswer,
+                    isCorrect: isCorrect,
+                    difficulty: difficulty,
+                    solvedAt: new Date().toISOString()
+                };
+                
+                await SIMPLE_API.saveMathProblem(problemData);
+                
+                // Update game state
+                problemCount++;
+                
+                if (isCorrect) {
+                    score++;
+                    streak++;
+                    showFeedback('ถูกต้อง! 🎉', 'success');
+                } else {
+                    streak = 0;
+                    showFeedback(`ผิด! คำตอบที่ถูกคือ ${currentProblem.answer}`, 'error');
+                }
+                
+                // Update stats
+                updateStats();
+                
+                // Generate new problem after delay
+                setTimeout(() => {
+                    generateNewProblem();
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Handle answer error:', error);
+                SIMPLE_API.showError('ไม่สามารถบันทึกคำตอบได้');
+            }
+        }
+        
+        function showFeedback(message, type) {
+            const feedbackEl = document.getElementById('feedback');
+            if (!feedbackEl) return;
+            
+            feedbackEl.textContent = message;
+            feedbackEl.className = `feedback ${type}`;
+            feedbackEl.style.display = 'block';
+            
+            setTimeout(() => {
+                feedbackEl.style.display = 'none';
+            }, 1500);
+        }
+        
+        function updateStats() {
+            const scoreEl = document.getElementById('currentScore');
+            const streakEl = document.getElementById('currentStreak');
+            const problemCountEl = document.getElementById('currentProblems');
+            const accuracyEl = document.getElementById('currentAccuracy');
+            
+            if (scoreEl) scoreEl.textContent = score;
+            if (streakEl) streakEl.textContent = streak;
+            if (problemCountEl) problemCountEl.textContent = problemCount;
+            if (accuracyEl) {
+                const accuracy = problemCount > 0 ? Math.round((score / problemCount) * 100) : 0;
+                accuracyEl.textContent = `${accuracy}%`;
+            }
+        }
+        
+        function updateDifficultyButtons() {
+            const buttons = document.querySelectorAll('[data-difficulty]');
+            buttons.forEach(button => {
+                if (button.dataset.difficulty === difficulty) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+        }
+        
+        function updateGameModeButtons() {
+            const buttons = document.querySelectorAll('[data-mode]');
+            buttons.forEach(button => {
+                if (button.dataset.mode === gameMode) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+        }
+        
+        function resetGame() {
+            score = 0;
+            streak = 0;
+            problemCount = 0;
+            updateStats();
+            generateNewProblem();
+            SIMPLE_API.showSuccess('เริ่มเกมใหม่!');
+        }
+        
+        // Navigation functions
+        function goBack() {
+            window.location.href = 'dashboard.html';
+        }
+    </script>
 </body>
 </html>

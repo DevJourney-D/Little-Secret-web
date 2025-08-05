@@ -967,16 +967,11 @@
             getToken() {
                 try {
                     const token = localStorage.getItem('nekouToken');
-                    
                     if (!token || token === 'undefined' || token === 'null' || token === '') {
-                        console.log('🔑 No valid token found in localStorage');
                         return null;
                     }
-                    
-                    console.log('🔑 Valid token found:', token.substring(0, 20) + '...');
                     return token;
                 } catch (error) {
-                    console.error('❌ Error reading token from localStorage:', error);
                     return null;
                 }
             },
@@ -986,13 +981,11 @@
                 try {
                     if (token) {
                         localStorage.setItem('nekouToken', token);
-                        console.log('🔑 Token saved to localStorage');
                     } else {
                         localStorage.removeItem('nekouToken');
-                        console.log('🔑 Token removed from localStorage');
                     }
                 } catch (error) {
-                    console.error('❌ Error saving token to localStorage:', error);
+                    // error silently
                 }
             },
 
@@ -1000,18 +993,12 @@
             getCurrentUser() {
                 try {
                     const userStr = localStorage.getItem('nekouUser');
-                    
                     if (!userStr || userStr === 'undefined' || userStr === 'null' || userStr === '') {
-                        console.log('❌ No valid user data in localStorage');
                         return null;
                     }
-                    
                     const userData = JSON.parse(userStr);
-                    console.log('✅ User data loaded from localStorage:', userData);
                     return userData;
                 } catch (error) {
-                    console.error('❌ Failed to parse user data from localStorage:', error);
-                    console.log('Raw userStr:', localStorage.getItem('nekouUser'));
                     return null;
                 }
             },
@@ -1021,32 +1008,26 @@
                 try {
                     if (userData) {
                         localStorage.setItem('nekouUser', JSON.stringify(userData));
-                        console.log('✅ User data saved to localStorage:', userData);
                     } else {
                         localStorage.removeItem('nekouUser');
-                        console.log('🗑️ User data removed from localStorage');
                     }
                 } catch (error) {
-                    console.error('❌ Error saving user data to localStorage:', error);
+                    // error silently
                 }
             },
 
             // Clear corrupted localStorage data
             clearCorruptedData() {
-                console.log('🧹 Clearing corrupted localStorage data...');
                 try {
                     localStorage.removeItem('nekouToken');
                     localStorage.removeItem('nekouUser');
-                    console.log('🧹 LocalStorage data cleared successfully');
                 } catch (error) {
-                    console.error('❌ Error clearing localStorage:', error);
+                    // error silently
                 }
             },
 
             // Helper function to get data (backward compatibility)
             getCookie(name) {
-                console.log(`⚠️ getCookie() is deprecated, use localStorage instead for: ${name}`);
-                
                 // Try localStorage first
                 if (name === 'nekouToken') {
                     return this.getToken();
@@ -1054,7 +1035,6 @@
                     const user = this.getCurrentUser();
                     return user ? JSON.stringify(user) : null;
                 }
-                
                 // Fallback to actual cookie for backward compatibility
                 const nameEQ = name + "=";
                 const ca = document.cookie.split(';');
@@ -1063,18 +1043,14 @@
                     while (c.charAt(0) === ' ') c = c.substring(1, c.length);
                     if (c.indexOf(nameEQ) === 0) {
                         const value = c.substring(nameEQ.length, c.length);
-                        console.log(`🍪 Found in cookie: ${name} = ${value}`);
                         return decodeURIComponent(value);
                     }
                 }
-                console.log(`🍪 Not found in cookie: ${name}`);
                 return null;
             },
 
             // Helper function to set data (backward compatibility)
             setCookie(name, value, hours = 24) {
-                console.log(`⚠️ setCookie() is deprecated, use localStorage instead for: ${name}`);
-                
                 // Use localStorage instead
                 if (name === 'nekouToken') {
                     this.setToken(value);
@@ -1083,7 +1059,7 @@
                         const userData = typeof value === 'string' ? JSON.parse(value) : value;
                         this.setCurrentUser(userData);
                     } catch (error) {
-                        console.error('❌ Error parsing user data for localStorage:', error);
+                        // error silently
                     }
                 } else {
                     // Fallback to actual cookie for other values
@@ -1091,7 +1067,6 @@
                     expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
                     const cookieString = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
                     document.cookie = cookieString;
-                    console.log(`🍪 Set cookie: ${name} = ${value}`);
                 }
             },
 
@@ -1134,11 +1109,25 @@
             },
 
             // Authentication methods
-            async login(email, password) {
-                return this.request('/api/auth/login', {
+            async login(usernameOrEmail, password) {
+                // รองรับทั้ง username และ email
+                const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(usernameOrEmail);
+                let loginData = { password };
+                if (isEmail) {
+                    loginData.email = usernameOrEmail;
+                } else {
+                    loginData.username = usernameOrEmail;
+                }
+                const response = await this.request('/api/users/login', {
                     method: 'POST',
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify(loginData)
                 });
+                // ถ้า login สำเร็จ ให้เก็บ token/user ลง localStorage
+                if (response && response.token && response.user) {
+                    this.setToken(response.token);
+                    this.setCurrentUser(response.user);
+                }
+                return response;
             },
 
             async register(userData) {

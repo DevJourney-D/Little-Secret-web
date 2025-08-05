@@ -360,11 +360,11 @@
                     while (c.charAt(0) === ' ') c = c.substring(1, c.length);
                     if (c.indexOf(nameEQ) === 0) {
                         const value = c.substring(nameEQ.length, c.length);
-                        console.log(`🍪 Got cookie: ${name} = ${value}`);
+                        // ...removed console.log for privacy...
                         return decodeURIComponent(value);
                     }
                 }
-                console.log(`🍪 Cookie not found: ${name}`);
+                // ...removed console.log for privacy...
                 return null;
             },
 
@@ -373,7 +373,7 @@
                 const expires = new Date();
                 expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
                 document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/`;
-                console.log(`🍪 Set cookie: ${name} = ${value}`);
+                // ...removed console.log for privacy...
             },
 
             // Update current user data in cookie
@@ -440,11 +440,11 @@
                     if (response.success) {
                         this.setCookie('nekouToken', response.token);
                         this.updateCurrentUser(response.user);
-                        console.log('✅ Login successful with method 1');
+                        // ...removed console.log for privacy...
                         return response;
                     }
                 } catch (error) {
-                    console.log('❌ Method 1 failed, trying method 2');
+                    // ...removed console.log for privacy...
                 }
                 
                 // Method 2: Try with both fields (fallback)
@@ -464,11 +464,11 @@
                     if (response.success) {
                         this.setCookie('nekouToken', response.token);
                         this.updateCurrentUser(response.user);
-                        console.log('✅ Login successful with method 2');
+                    // ...removed console.log for privacy...
                         return response;
                     }
                 } catch (error) {
-                    console.log('❌ Method 2 failed, trying method 3');
+                    // ...removed console.log for privacy...
                 }
                 
                 // Method 3: Try legacy format (final fallback)
@@ -487,12 +487,12 @@
                     if (response.success) {
                         this.setCookie('nekouToken', response.token);
                         this.updateCurrentUser(response.user);
-                        console.log('✅ Login successful with method 3');
+                    // ...removed console.log for privacy...
                     }
                     
                     return response;
                 } catch (error) {
-                    console.error('❌ All login methods failed');
+                // ...removed console.error for privacy...
                     throw error;
                 }
             },
@@ -624,7 +624,7 @@
                     let result;
                     if (isValidEmail(input)) {
                         result = await SIMPLE_API.checkEmail(input);
-                        console.log('🔍 Email check result (FULL):', JSON.stringify(result, null, 2));
+                        // ...removed console.log for privacy...
                         
                         // Check multiple possible response formats
                         const emailExists = result && (
@@ -636,7 +636,7 @@
                             (result.user && result.user !== null)
                         );
                         
-                        console.log('🔍 Email exists check:', emailExists);
+                        // ...removed console.log for privacy...
                         
                         if (emailExists) {
                             feedbackDiv.className = 'text-success small mt-1';
@@ -647,7 +647,7 @@
                         }
                     } else {
                         result = await SIMPLE_API.checkUsername(input);
-                        console.log('🔍 Username check result (FULL):', JSON.stringify(result, null, 2));
+                        // ...removed console.log for privacy...
                         
                         // Check multiple possible response formats
                         const usernameExists = result && (
@@ -659,7 +659,7 @@
                             (result.user && result.user !== null)
                         );
                         
-                        console.log('🔍 Username exists check:', usernameExists);
+                        // ...removed console.log for privacy...
                         
                         if (usernameExists) {
                             feedbackDiv.className = 'text-success small mt-1';
@@ -670,7 +670,7 @@
                         }
                     }
                 } catch (error) {
-                    console.error('❌ Validation error:', error);
+                    // ...removed console.error for privacy...
                     feedbackDiv.className = 'text-muted small mt-1';
                     feedbackDiv.innerHTML = '<i class="bi bi-wifi-off me-1"></i>ไม่สามารถตรวจสอบได้ในขณะนี้';
                 }
@@ -681,7 +681,7 @@
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            console.log('🔐 Login attempt started');
+            // ...removed console.log for privacy...
             
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
@@ -706,16 +706,16 @@
             alertDiv.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>กำลังตรวจสอบข้อมูลการเข้าสู่ระบบ...</div>';
             
             try {
-                console.log(`🔑 Attempting login for: ${username} (${isValidEmail(username) ? 'email' : 'username'})`);
+                // ...removed console.log for privacy...
                 const result = await SIMPLE_API.login(username, password);
                 
                 if (result.success) {
-                    console.log('✅ Login successful:', result);
+                    // ...removed console.log for privacy...
                     
                     // Handle remember username
                     if (rememberMe) {
                         localStorage.setItem('rememberedUsername', username);
-                        console.log('💾 Username saved for next time');
+                        // ...removed console.log for privacy...
                     } else {
                         localStorage.removeItem('rememberedUsername');
                     }
@@ -735,7 +735,7 @@
                 }
                 
             } catch (error) {
-                console.error('❌ Login failed:', error);
+                // ...removed console.error for privacy...
                 
                 // Determine error type for better user experience
                 let errorMessage = 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
@@ -774,18 +774,18 @@
         
         // Password toggle
         document.getElementById('togglePassword').addEventListener('click', function() {
-            console.log('👁️ Toggling password visibility');
+                // ...removed console.log for privacy...
             const passwordField = document.getElementById('password');
             const icon = this.querySelector('i');
             
             if (passwordField.type === 'password') {
                 passwordField.type = 'text';
                 icon.className = 'bi bi-eye-slash';
-                console.log('👁️ Password visible');
+                // ...removed console.log for privacy...
             } else {
                 passwordField.type = 'password';
                 icon.className = 'bi bi-eye';
-                console.log('👁️ Password hidden');
+                // ...removed console.log for privacy...
             }
         });
         
@@ -795,7 +795,7 @@
             if (savedUsername) {
                 document.getElementById('username').value = savedUsername;
                 document.getElementById('rememberMe').checked = true;
-                console.log('💾 Loaded saved username:', savedUsername);
+            // ...removed console.log for privacy...
             }
         });
         
@@ -803,10 +803,10 @@
             const usernameField = document.getElementById('username');
             if (this.checked && usernameField.value) {
                 localStorage.setItem('rememberedUsername', usernameField.value);
-                console.log('💾 Username will be remembered');
+                // ...removed console.log for privacy...
             } else {
                 localStorage.removeItem('rememberedUsername');
-                console.log('🗑️ Username will not be remembered');
+                // ...removed console.log for privacy...
             }
         });
         
@@ -824,7 +824,7 @@
         
         // Forgot password functionality
         function showForgotPasswordModal() {
-            console.log('🔑 Forgot password clicked');
+                    // ...removed console.log for privacy...
             
             // Create a beautiful modal-like notification
             const modal = document.createElement('div');
@@ -917,7 +917,7 @@
         // Make function globally available
         window.showForgotPasswordModal = showForgotPasswordModal;
         
-        console.log('📋 Login page JavaScript loaded successfully');
+        // ...removed console.log for privacy...
     </script>
 </body>
 </html>

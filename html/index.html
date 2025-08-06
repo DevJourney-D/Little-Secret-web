@@ -327,274 +327,69 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Neko API Helper -->
+    <script src="../assets/js/neko-api.js"></script>
+    <script src="../assets/js/auth-guard.js"></script>
+    
     <script>
-        // Simple API Helper - Inline Version
-        const SIMPLE_API = {
-            baseURL: 'https://little-secret-api.vercel.app',
-
-            // Get authentication token from cookie
-            getToken() {
-                const name = 'nekouToken=';
-                const decodedCookie = decodeURIComponent(document.cookie);
-                const ca = decodedCookie.split(';');
-                for (let i = 0; i < ca.length; i++) {
-                    let c = ca[i];
-                    while (c.charAt(0) === ' ') c = c.substring(1);
-                    if (c.indexOf(name) === 0) return c.substring(name.length, c.length);
-                }
-                return null;
-            },
-
-            // Get current user from cookie
-            getCurrentUser() {
-                const userStr = this.getCookie('nekouUser');
-                return userStr ? JSON.parse(userStr) : null;
-            },
-
-            // Helper function to get cookie
-            getCookie(name) {
-                const nameEQ = name + "=";
-                const ca = document.cookie.split(';');
-                for (let i = 0; i < ca.length; i++) {
-                    let c = ca[i];
-                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                    if (c.indexOf(nameEQ) === 0) {
-                        const value = c.substring(nameEQ.length, c.length);
-                        // ...removed console.log for privacy...
-                        return decodeURIComponent(value);
-                    }
-                }
-                // ...removed console.log for privacy...
-                return null;
-            },
-
-            // Set cookie
-            setCookie(name, value, hours = 24) {
-                const expires = new Date();
-                expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
-                document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/`;
-                // ...removed console.log for privacy...
-            },
-
-            // Update current user data in cookie
-            updateCurrentUser(userData) {
-                this.setCookie('nekouUser', JSON.stringify(userData));
-            },
-
-            // Base request function
-            async request(endpoint, options = {}) {
-                const token = this.getToken();
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` })
-                };
-
-                const config = {
-                    headers,
-                    mode: 'cors',
-                    credentials: 'omit',
-                    ...options
-                };
-
-                try {
-                    console.log(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
-                    const response = await fetch(`${this.baseURL}${endpoint}`, config);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    console.log(`✅ API Response:`, data);
-                    return data;
-                } catch (error) {
-                    console.error(`❌ API Error:`, error);
-                    throw error;
-                }
-            },
-
-            // Authentication methods
-            async login(usernameOrEmail, password) {
-                // Try multiple login approaches based on API requirements
-                const isEmail = this.isValidEmail(usernameOrEmail);
-                
-                // Method 1: Try with field detection
-                let loginData = {
-                    password: password
-                };
-                
-                if (isEmail) {
-                    loginData.email = usernameOrEmail;
-                } else {
-                    loginData.username = usernameOrEmail;
-                }
-                
-                try {
-                    console.log('🔑 Attempting login method 1 (field detection):', loginData);
-                    const response = await this.request('/api/users/login', {
-                        method: 'POST',
-                        body: JSON.stringify(loginData)
-                    });
-
-                    if (response.success) {
-                        this.setCookie('nekouToken', response.token);
-                        this.updateCurrentUser(response.user);
-                        // ...removed console.log for privacy...
-                        return response;
-                    }
-                } catch (error) {
-                    // ...removed console.log for privacy...
-                }
-                
-                // Method 2: Try with both fields (fallback)
-                try {
-                    loginData = {
-                        username: usernameOrEmail,
-                        email: isEmail ? usernameOrEmail : null,
-                        password: password
-                    };
-                    
-                    console.log('🔑 Attempting login method 2 (both fields):', {...loginData, password: '***'});
-                    const response = await this.request('/api/users/login', {
-                        method: 'POST',
-                        body: JSON.stringify(loginData)
-                    });
-
-                    if (response.success) {
-                        this.setCookie('nekouToken', response.token);
-                        this.updateCurrentUser(response.user);
-                    // ...removed console.log for privacy...
-                        return response;
-                    }
-                } catch (error) {
-                    // ...removed console.log for privacy...
-                }
-                
-                // Method 3: Try legacy format (final fallback)
-                try {
-                    loginData = {
-                        username: usernameOrEmail,
-                        password: password
-                    };
-                    
-                    console.log('🔑 Attempting login method 3 (legacy):', {...loginData, password: '***'});
-                    const response = await this.request('/api/users/login', {
-                        method: 'POST',
-                        body: JSON.stringify(loginData)
-                    });
-
-                    if (response.success) {
-                        this.setCookie('nekouToken', response.token);
-                        this.updateCurrentUser(response.user);
-                    // ...removed console.log for privacy...
-                    }
-                    
-                    return response;
-                } catch (error) {
-                // ...removed console.error for privacy...
-                    throw error;
-                }
-            },
-
-            // Helper method for email validation
-            isValidEmail(email) {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                return emailRegex.test(email);
-            },
-
-            async checkUsername(username) {
-                return this.request(`/api/users/username/${encodeURIComponent(username)}`);
-            },
-
-            async checkEmail(email) {
-                return this.request(`/api/users/email/${encodeURIComponent(email)}`);
-            },
-
-            logout() {
-                document.cookie = 'nekouToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                document.cookie = 'nekouUser=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                window.location.href = 'index.html';
-            },
-
-            // UI helpers
-            showError(message) {
-                // Create toast-like notification
-                const toast = document.createElement('div');
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #dc3545;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 10px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    animation: slideIn 0.3s ease;
-                `;
-                toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
-                
-                // Add animation
-                const style = document.createElement('style');
-                style.textContent = `
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                `;
-                document.head.appendChild(style);
-                
-                document.body.appendChild(toast);
-                setTimeout(() => {
-                    toast.remove();
-                    style.remove();
-                }, 5000);
-            },
-
-            showSuccess(message) {
-                const toast = document.createElement('div');
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #28a745;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 10px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                `;
-                toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
-                
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-            }
-        };
-
         // Check if already logged in on page load
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Login page loaded');
-            
-            // Check if user is already logged in
-            const currentUser = SIMPLE_API.getCurrentUser();
-            const token = SIMPLE_API.getToken();
-            
-            if (currentUser && token) {
-                console.log('✅ User already logged in, redirecting to dashboard');
-                SIMPLE_API.showSuccess('คุณเข้าสู่ระบบอยู่แล้ว กำลังเปลี่ยนเส้นทาง...');
-                setTimeout(() => {
-                    window.location.href = 'dashboard.html';
-                }, 1500);
-                return;
-            }
-            
-            console.log('📋 User not logged in, showing login form');
+            // AuthGuard will handle this automatically
         });
 
-        // Email validation helper - use API method
+        // Email validation helper
         function isValidEmail(email) {
-            return SIMPLE_API.isValidEmail(email);
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Toast notification helpers
+        function showError(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #dc3545;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                z-index: 9999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+                style.remove();
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #28a745;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                z-index: 9999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         // Real-time validation for username/email
@@ -623,8 +418,7 @@
                     
                     let result;
                     if (isValidEmail(input)) {
-                        result = await SIMPLE_API.checkEmail(input);
-                        // ...removed console.log for privacy...
+                        result = await nekoAPI.checkEmail(input);
                         
                         // Check multiple possible response formats
                         const emailExists = result && (
@@ -636,8 +430,6 @@
                             (result.user && result.user !== null)
                         );
                         
-                        // ...removed console.log for privacy...
-                        
                         if (emailExists) {
                             feedbackDiv.className = 'text-success small mt-1';
                             feedbackDiv.innerHTML = '<i class="bi bi-check-circle me-1"></i>อีเมลนี้มีในระบบ พร้อมเข้าสู่ระบบ';
@@ -646,8 +438,7 @@
                             feedbackDiv.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>ไม่พบอีเมลนี้ในระบบ';
                         }
                     } else {
-                        result = await SIMPLE_API.checkUsername(input);
-                        // ...removed console.log for privacy...
+                        result = await nekoAPI.checkUsername(input);
                         
                         // Check multiple possible response formats
                         const usernameExists = result && (
@@ -658,8 +449,6 @@
                             (result.data && result.data.exists === true) ||
                             (result.user && result.user !== null)
                         );
-                        
-                        // ...removed console.log for privacy...
                         
                         if (usernameExists) {
                             feedbackDiv.className = 'text-success small mt-1';
@@ -706,69 +495,28 @@
             alertDiv.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>กำลังตรวจสอบข้อมูลการเข้าสู่ระบบ...</div>';
             
             try {
-                // ...removed console.log for privacy...
-                const result = await SIMPLE_API.login(username, password);
+                const result = await nekoAPI.login(username, password);
                 
                 if (result.success) {
-                    // ...removed console.log for privacy...
-                    
                     // Handle remember username
                     if (rememberMe) {
                         localStorage.setItem('rememberedUsername', username);
-                        // ...removed console.log for privacy...
                     } else {
                         localStorage.removeItem('rememberedUsername');
                     }
-                    
                     // Success notification
                     alertDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>🎉 เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับกลับมา</div>';
-                    SIMPLE_API.showSuccess('🎉 เข้าสู่ระบบสำเร็จ! กำลังเปลี่ยนเส้นทาง...');
-                    
+                    showSuccess('🎉 เข้าสู่ระบบสำเร็จ! กำลังเปลี่ยนเส้นทาง...');
                     // Reset button for visual feedback
                     loginBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>เข้าสู่ระบบสำเร็จ!';
-                    
                     setTimeout(() => {
                         window.location.href = 'dashboard.html';
                     }, 1500);
                 } else {
                     throw new Error(result.message || 'เข้าสู่ระบบไม่สำเร็จ');
                 }
-                
             } catch (error) {
-                // ...removed console.error for privacy...
-                
-                // Determine error type for better user experience
-                let errorMessage = 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
-                
-                if (error.message.includes('400')) {
-                    errorMessage = 'ข้อมูลที่กรอกไม่ถูกต้อง กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน';
-                } else if (error.message.includes('401') || error.message.includes('Unauthorized') || 
-                    error.message.includes('incorrect') || error.message.includes('invalid')) {
-                    errorMessage = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
-                } else if (error.message.includes('404') || error.message.includes('not found')) {
-                    errorMessage = 'ไม่พบบัญชีผู้ใช้นี้ในระบบ';
-                } else if (error.message.includes('422')) {
-                    errorMessage = 'รูปแบบข้อมูลไม่ถูกต้อง กรุณาตรวจสอบการกรอกข้อมูล';
-                } else if (error.message.includes('network') || error.message.includes('fetch')) {
-                    errorMessage = 'เกิดปัญหาการเชื่อมต่อ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
-                } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-                    errorMessage = 'เกิดปัญหาการเชื่อมต่อกับเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง';
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-                
-                // Error notification
-                alertDiv.innerHTML = `<div class="alert alert-danger">
-                    <i class="bi bi-exclamation-circle me-2"></i>
-                    <strong>❌ ${errorMessage}</strong>
-                    <br><small class="mt-1 d-block">💡 หากลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบ หรือสร้างบัญชีใหม่</small>
-                </div>`;
-                
-                SIMPLE_API.showError(errorMessage);
-                
-                // Reset button
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = '<span class="login-text">เข้าสู่ระบบ</span>';
+                // ...existing code...
             }
         });
         

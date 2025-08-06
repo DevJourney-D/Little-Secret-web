@@ -819,371 +819,68 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="auth-check.js"></script>
+    
+    <!-- Neko API Helper -->
+    <script src="../assets/js/neko-api.js"></script>
+    <script src="../assets/js/auth-guard.js"></script>
     
     <script>
-        // Simple API Helper - Inline Version
-        const SIMPLE_API = {
-            baseURL: 'https://little-secret-api.vercel.app',
+        // Initialize auth guard to protect this page
+        authGuard.protectPage();
 
-            // Get authentication token from localStorage
-            getToken() {
-                try {
-                    const token = localStorage.getItem('nekouToken');
-                    
-                    if (!token || token === 'undefined' || token === 'null' || token === '') {
-                        console.log('🔑 No valid token found in localStorage');
-                        return null;
-                    }
-                    
-                    console.log('🔑 Valid token found:', token.substring(0, 20) + '...');
-                    return token;
-                } catch (error) {
-                    console.error('❌ Error reading token from localStorage:', error);
-                    return null;
-                }
-            },
+        // Get current user for settings page
+        let currentUser = nekoAPI.getCurrentUser();
+        
+        // Toast notification functions
+        function showError(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #dc3545;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                z-index: 9999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
 
-            // Set authentication token in localStorage
-            setToken(token) {
-                try {
-                    if (token) {
-                        localStorage.setItem('nekouToken', token);
-                        console.log('🔑 Token saved to localStorage');
-                    } else {
-                        localStorage.removeItem('nekouToken');
-                        console.log('🔑 Token removed from localStorage');
-                    }
-                } catch (error) {
-                    console.error('❌ Error saving token to localStorage:', error);
-                }
-            },
-
-            // Get current user from localStorage
-            getCurrentUser() {
-                try {
-                    const userStr = localStorage.getItem('nekouUser');
-                    
-                    if (!userStr || userStr === 'undefined' || userStr === 'null' || userStr === '') {
-                        console.log('❌ No valid user data in localStorage');
-                        return null;
-                    }
-                    
-                    const userData = JSON.parse(userStr);
-                    console.log('✅ User data loaded from localStorage:', userData);
-                    return userData;
-                } catch (error) {
-                    console.error('❌ Failed to parse user data from localStorage:', error);
-                    console.log('Raw userStr:', localStorage.getItem('nekouUser'));
-                    return null;
-                }
-            },
-
-            // Set current user data in localStorage
-            setCurrentUser(userData) {
-                try {
-                    if (userData) {
-                        localStorage.setItem('nekouUser', JSON.stringify(userData));
-                        console.log('✅ User data saved to localStorage:', userData);
-                    } else {
-                        localStorage.removeItem('nekouUser');
-                        console.log('🗑️ User data removed from localStorage');
-                    }
-                } catch (error) {
-                    console.error('❌ Error saving user data to localStorage:', error);
-                }
-            },
-
-            // Clear corrupted localStorage data
-            clearCorruptedData() {
-                console.log('🧹 Clearing corrupted localStorage data...');
-                try {
-                    localStorage.removeItem('nekouToken');
-                    localStorage.removeItem('nekouUser');
-                    console.log('🧹 LocalStorage data cleared successfully');
-                } catch (error) {
-                    console.error('❌ Error clearing localStorage:', error);
-                }
-            },
-
-            // Get user by ID
-            async getUser(userId) {
-                return this.request(`/api/users/${userId}`, {
-                    method: 'GET'
-                });
-            },
-
-            // Helper function to get data from localStorage (deprecated - for backward compatibility)
-            getCookie(name) {
-                console.log(`⚠️ getCookie() is deprecated, use localStorage instead for: ${name}`);
-                
-                // Try localStorage first
-                if (name === 'nekouToken') {
-                    return this.getToken();
-                } else if (name === 'nekouUser') {
-                    const user = this.getCurrentUser();
-                    return user ? JSON.stringify(user) : null;
-                }
-                
-                // Fallback to actual cookie for backward compatibility
-                const nameEQ = name + "=";
-                const ca = document.cookie.split(';');
-                for (let i = 0; i < ca.length; i++) {
-                    let c = ca[i];
-                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                    if (c.indexOf(nameEQ) === 0) {
-                        const value = c.substring(nameEQ.length, c.length);
-                        const decodedValue = decodeURIComponent(value);
-                        console.log(`🍪 Found in cookie: ${name} = ${decodedValue}`);
-                        return decodedValue;
-                    }
-                }
-                console.log(`🍪 Not found in cookie: ${name}`);
-                return null;
-            },
-
-            // Helper function to set data (deprecated - for backward compatibility)
-            setCookie(name, value, hours = 24) {
-                console.log(`⚠️ setCookie() is deprecated, use localStorage instead for: ${name}`);
-                
-                // Use localStorage instead
-                if (name === 'nekouToken') {
-                    this.setToken(value);
-                } else if (name === 'nekouUser') {
-                    try {
-                        const userData = typeof value === 'string' ? JSON.parse(value) : value;
-                        this.setCurrentUser(userData);
-                    } catch (error) {
-                        console.error('❌ Error parsing user data for localStorage:', error);
-                    }
-                } else {
-                    // Fallback to actual cookie for other values
-                    const expires = new Date();
-                    expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
-                    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/`;
-                    console.log(`🍪 Set cookie: ${name} = ${value}`);
-                }
-            },
-
-            // Update current user data in localStorage
-            updateCurrentUser(userData) {
-                this.setCurrentUser(userData);
-            },
-
-            // Base request function
-            async request(endpoint, options = {}) {
-                const token = this.getToken();
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` })
-                };
-
-                const config = {
-                    headers,
-                    mode: 'cors',
-                    credentials: 'omit',
-                    ...options
-                };
-
-                try {
-                    console.log(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
-                    const response = await fetch(`${this.baseURL}${endpoint}`, config);
-                    
-                    let data;
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        data = await response.json();
-                    } else {
-                        data = { message: await response.text() };
-                    }
-
-                    if (!response.ok) {
-                        throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    console.log(`✅ API Response:`, data);
-                    return data;
-                } catch (error) {
-                    console.error(`❌ API Error: ${endpoint}`, error);
-                    throw error;
-                }
-            },
-
-            // User Profile
-            async updateProfile(userId, userData) {
-                return this.request(`/api/users/${userId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify(userData)
-                });
-            },
-
-            // Change Password
-            async changePassword(userId, passwordData) {
-                return this.request(`/api/users/${userId}/password`, {
-                    method: 'PUT',
-                    body: JSON.stringify(passwordData)
-                });
-            },
-
-            // Change Email
-            async changeEmail(userId, emailData) {
-                return this.request(`/api/users/${userId}/email`, {
-                    method: 'PUT',
-                    body: JSON.stringify(emailData)
-                });
-            },
-
-            // User Preferences
-            async getUserPreferences(userId) {
-                return this.request(`/api/users/${userId}/preferences`, {
-                    method: 'GET'
-                });
-            },
-
-            async updatePreferences(userId, preferencesData) {
-                return this.request(`/api/users/${userId}/preferences`, {
-                    method: 'PUT',
-                    body: JSON.stringify(preferencesData)
-                });
-            },
-
-            // Partner management
-            async connectPartner(userId, partnerCode) {
-                return this.request(`/api/users/${userId}/connect-partner`, {
-                    method: 'POST',
-                    body: JSON.stringify({ partnerCode })
-                });
-            },
-
-            async disconnectPartner(userId) {
-                return this.request(`/api/users/${userId}/disconnect-partner`, {
-                    method: 'DELETE'
-                });
-            },
-
-            // Dashboard data
-            async getDashboardData(userId) {
-                return this.request(`/api/${userId}/dashboard`, {
-                    method: 'GET'
-                });
-            },
-
-            // Diary stats
-            async getDiaryStats(userId) {
-                return this.request(`/api/${userId}/diaries/stats`, {
-                    method: 'GET'
-                });
-            },
-
-            // Todo stats
-            async getTodoStats(userId) {
-                return this.request(`/api/${userId}/todos/stats`, {
-                    method: 'GET'
-                });
-            },
-
-            // Pomodoro stats
-            async getPomodoroStats(userId) {
-                return this.request(`/api/${userId}/pomodoro/stats`, {
-                    method: 'GET'
-                });
-            },
-
-            // Messages with partner
-            async getMessagesWithPartner(userId, partnerId) {
-                return this.request(`/api/${userId}/messages/${partnerId}`, {
-                    method: 'GET'
-                });
-            },
-
-            // Delete account
-            async deleteAccount(userId) {
-                return this.request(`/api/users/${userId}`, {
-                    method: 'DELETE'
-                });
-            },
-
-            logout() {
-                console.log('🚪 Logging out user...');
-                this.clearCorruptedData();
-                window.location.href = 'index.html';
-            },
-
-            // UI helpers
-            showError(message) {
-                // Create toast-like notification
-                const toast = document.createElement('div');
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #dc3545;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 10px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    animation: slideIn 0.3s ease;
-                `;
-                toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
-                
-                // Add animation
-                const style = document.createElement('style');
-                style.textContent = `
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                `;
-                document.head.appendChild(style);
-                
-                document.body.appendChild(toast);
-                setTimeout(() => {
-                    toast.remove();
-                    style.remove();
-                }, 5000);
-            },
-
-            showSuccess(message) {
-                // Create toast-like notification
-                const toast = document.createElement('div');
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #28a745;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 10px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    animation: slideIn 0.3s ease;
-                `;
-                toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
-                
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-            }
-        };
-
-        // Analytics stub
-        console.log('📊 Analytics loaded');
+        function showSuccess(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #28a745;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                z-index: 9999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
 
         // Enhanced Neko Helper Class for Settings Page
         class NekoUHelper {
             constructor() {
                 this.currentUser = null;
                 this.isInitialized = false;
-                this.api = SIMPLE_API;
             }
 
             // Initialize helper with user data
             async initialize() {
                 try {
                     console.log('🔧 Initializing NekoUHelper...');
-                    const token = this.api.getToken();
-                    const user = this.api.getCurrentUser();
+                    const token = nekoAPI.getToken();
+                    const user = nekoAPI.getCurrentUser();
                     
                     console.log('🔑 Token found:', !!token);
                     console.log('👤 User found:', !!user);
@@ -1210,7 +907,7 @@
 
             // Check if user is authenticated
             isAuthenticated() {
-                return this.isInitialized && this.currentUser && this.api.getToken();
+                return this.isInitialized && this.currentUser && nekoAPI.getToken();
             }
 
             // Chat helpers
@@ -1220,7 +917,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/messages', {
+                    const result = await nekoAPI.request('/api/messages', {
                         method: 'POST',
                         body: JSON.stringify({
                             receiverId,
@@ -1240,7 +937,7 @@
                 }
 
                 try {
-                    const result = await this.api.request(`/api/messages?partnerId=${partnerId}&limit=${limit}`, {
+                    const result = await nekoAPI.request(`/api/messages?partnerId=${partnerId}&limit=${limit}`, {
                         method: 'GET'
                     });
                     return result;
@@ -1256,7 +953,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/diaries', {
+                    const result = await nekoAPI.request('/api/diaries', {
                         method: 'POST',
                         body: JSON.stringify({
                             title,
@@ -1277,7 +974,7 @@
                 }
 
                 try {
-                    const result = await this.api.request(`/api/diaries?page=${page}&limit=${limit}`, {
+                    const result = await nekoAPI.request(`/api/diaries?page=${page}&limit=${limit}`, {
                         method: 'GET'
                     });
                     return result;
@@ -1293,7 +990,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/todos', {
+                    const result = await nekoAPI.request('/api/todos', {
                         method: 'POST',
                         body: JSON.stringify({
                             title,
@@ -1314,7 +1011,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/todos', {
+                    const result = await nekoAPI.request('/api/todos', {
                         method: 'GET'
                     });
                     return result;
@@ -1329,7 +1026,7 @@
                 }
 
                 try {
-                    const result = await this.api.request(`/api/todos/${todoId}`, {
+                    const result = await nekoAPI.request(`/api/todos/${todoId}`, {
                         method: 'PUT',
                         body: JSON.stringify(updates)
                     });
@@ -1346,7 +1043,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/pomodoro/sessions', {
+                    const result = await nekoAPI.request('/api/pomodoro/sessions', {
                         method: 'POST',
                         body: JSON.stringify({
                             duration: duration * 60, // Convert to seconds
@@ -1366,7 +1063,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/pomodoro/stats', {
+                    const result = await nekoAPI.request('/api/pomodoro/stats', {
                         method: 'GET'
                     });
                     return result;
@@ -1382,7 +1079,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/math/progress', {
+                    const result = await nekoAPI.request('/api/math/progress', {
                         method: 'POST',
                         body: JSON.stringify({
                             topic,
@@ -1403,7 +1100,7 @@
                 }
 
                 try {
-                    const result = await this.api.request('/api/math/progress', {
+                    const result = await nekoAPI.request('/api/math/progress', {
                         method: 'GET'
                     });
                     return result;
@@ -1440,9 +1137,9 @@
             // Notification helpers
             showNotification(title, message, type = 'info') {
                 if (type === 'success') {
-                    this.api.showSuccess(message);
+                    showSuccess(message);
                 } else if (type === 'error') {
-                    this.api.showError(message);
+                    showError(message);
                 } else {
                     // Create info notification
                     const toast = document.createElement('div');
@@ -1610,7 +1307,7 @@
                         timestamp: new Date().toISOString()
                     };
 
-                    const result = await SIMPLE_API.request('/api/neko-chat/conversations', {
+                    const result = await nekoAPI.request('/api/neko-chat/conversations', {
                         method: 'POST',
                         body: JSON.stringify(conversation)
                     });
@@ -1718,7 +1415,7 @@
             async saveSession() {
                 try {
                     if (this.currentSession) {
-                        await SIMPLE_API.request(`/api/pomodoro/sessions/${this.currentSession.id}`, {
+                        await nekoAPI.request(`/api/pomodoro/sessions/${this.currentSession.id}`, {
                             method: 'PUT',
                             body: JSON.stringify({
                                 completed: true,
@@ -1802,7 +1499,7 @@
 
             async deleteTodo(todoId) {
                 try {
-                    const response = await SIMPLE_API.request(`/api/todos/${todoId}`, {
+                    const response = await nekoAPI.request(`/api/todos/${todoId}`, {
                         method: 'DELETE'
                     });
                     
@@ -1922,7 +1619,7 @@
 
             async updateDiary(diaryId, updates) {
                 try {
-                    const response = await SIMPLE_API.request(`/api/diaries/${diaryId}`, {
+                    const response = await nekoAPI.request(`/api/diaries/${diaryId}`, {
                         method: 'PUT',
                         body: JSON.stringify(updates)
                     });
@@ -1943,7 +1640,7 @@
 
             async deleteDiary(diaryId) {
                 try {
-                    const response = await SIMPLE_API.request(`/api/diaries/${diaryId}`, {
+                    const response = await nekoAPI.request(`/api/diaries/${diaryId}`, {
                         method: 'DELETE'
                     });
                     
@@ -1963,14 +1660,14 @@
         async function fetchAndUpdateUserData() {
             try {
                 console.log('🔄 Fetching fresh user data from API...');
-                const token = SIMPLE_API.getToken();
+                const token = nekoAPI.getToken();
                 if (!token) {
                     console.log('❌ No token found');
                     return null;
                 }
 
                 // Get current user from localStorage first
-                let user = SIMPLE_API.getCurrentUser();
+                let user = nekoAPI.getCurrentUser();
                 if (!user || !user.id) {
                     console.log('❌ No user ID found in localStorage');
                     return null;
@@ -1980,7 +1677,7 @@
                 
                 // Test API connectivity first
                 try {
-                    const testResponse = await fetch(`${SIMPLE_API.baseURL}/api/health`, {
+                    const testResponse = await fetch(`${nekoAPI.baseURL}/api/health`, {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -1990,21 +1687,21 @@
                 }
 
                 // Fetch fresh data from API
-                const response = await SIMPLE_API.getUser(user.id);
+                const response = await nekoAPI.getUser(user.id);
                 console.log('📊 API Response for user data:', response);
                 
                 if (response && response.success && response.user) {
                     console.log('✅ Fresh user data received:', response.user);
                     
                     // Update localStorage with fresh data
-                    SIMPLE_API.updateCurrentUser(response.user);
+                    nekoAPI.updateCurrentUser(response.user);
                     console.log('✅ localStorage updated with fresh data');
                     
                     return response.user;
                 } else if (response && response.user) {
                     // Some APIs might not use 'success' flag
                     console.log('✅ User data received (alternative format):', response.user);
-                    SIMPLE_API.updateCurrentUser(response.user);
+                    nekoAPI.updateCurrentUser(response.user);
                     return response.user;
                 } else {
                     console.log('❌ Failed to fetch user data:', response);
@@ -2014,7 +1711,7 @@
             } catch (error) {
                 console.error('❌ Error fetching user data:', error);
                 console.log('📋 Using cached user data as fallback');
-                return SIMPLE_API.getCurrentUser(); // Return cached data as fallback
+                return nekoAPI.getCurrentUser(); // Return cached data as fallback
             }
         }
 
@@ -2036,8 +1733,8 @@
             const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItMTIzIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTYxNjIzOTAyMn0.test-signature';
             
             // Save to localStorage
-            SIMPLE_API.setToken(mockToken);
-            SIMPLE_API.setCurrentUser(mockUser);
+            nekoAPI.setToken(mockToken);
+            nekoAPI.setCurrentUser(mockUser);
             
             console.log('✅ Mock login data saved to localStorage');
             console.log('🔄 Reloading page to test authentication...');
@@ -2067,10 +1764,10 @@
                 }
             });
             
-            // Test SIMPLE_API methods
-            console.log('🔧 SIMPLE_API methods:');
-            console.log('  - getToken():', SIMPLE_API.getToken());
-            console.log('  - getCurrentUser():', SIMPLE_API.getCurrentUser());
+            // Test nekoAPI methods
+            console.log('🔧 nekoAPI methods:');
+            console.log('  - getToken():', nekoAPI.getToken());
+            console.log('  - getCurrentUser():', nekoAPI.getCurrentUser());
             
             // Auth status
             if (typeof checkAuthenticationStatus === 'function') {
@@ -2217,14 +1914,14 @@
             
             // Clear all authentication data
             console.log('🧹 Clearing all authentication data...');
-            SIMPLE_API.clearCorruptedData();
+            nekoAPI.clearCorruptedData();
             
             // Also clear any remaining cookies for good measure
             document.cookie = 'nekouToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
             document.cookie = 'nekouUser=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
             
             // Show success message
-            SIMPLE_API.showSuccess('ล้างข้อมูลเก่าเรียบร้อย กำลังโหลดหน้าใหม่...');
+            showSuccess('ล้างข้อมูลเก่าเรียบร้อย กำลังโหลดหน้าใหม่...');
             
             // Reload after short delay
             setTimeout(() => {
@@ -2258,7 +1955,7 @@
             }
             
             // Show info notification
-            SIMPLE_API.showError('ไม่สามารถโหลดข้อมูลผู้ใช้ได้ บางฟีเจอร์อาจใช้งานไม่ได้');
+            showError('ไม่สามารถโหลดข้อมูลผู้ใช้ได้ บางฟีเจอร์อาจใช้งานไม่ได้');
             
             // Show login alert after a delay
             setTimeout(() => {
@@ -2269,14 +1966,14 @@
         // Function to go to login page
         function goToLogin() {
             console.log('🚪 Redirecting to login page...');
-            SIMPLE_API.clearCorruptedData();
+            nekoAPI.clearCorruptedData();
             window.location.href = 'index.html';
         }
 
         // Navigation functions
         function navigateToPage(pageName) {
-            const token = SIMPLE_API.getToken();
-            const user = SIMPLE_API.getCurrentUser();
+            const token = nekoAPI.getToken();
+            const user = nekoAPI.getCurrentUser();
             
             if (!token || !user) {
                 showLoginRequiredAlert();
@@ -2289,7 +1986,7 @@
         // Logout function
         function handleLogout() {
             if (confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
-                SIMPLE_API.logout();
+                nekoAPI.logout();
             }
         }
 
@@ -2304,24 +2001,22 @@
     </script>
     
     <script>
-        let currentUser = null;
-        
         // Initialize settings page
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 console.log('🚀 === SETTINGS PAGE INITIALIZATION START ===');
                 
-                // ตรวจสอบ SIMPLE_API
-                if (typeof SIMPLE_API === 'undefined') {
-                    alert('❌ SIMPLE_API ยังไม่ถูกโหลด กรุณาตรวจสอบการ include script หรือรีเฟรชหน้าใหม่');
-                    console.error('SIMPLE_API is undefined.');
+                // ตรวจสอบ nekoAPI
+                if (typeof nekoAPI === 'undefined') {
+                    alert('❌ nekoAPI ยังไม่ถูกโหลด กรุณาตรวจสอบการ include script หรือรีเฟรชหน้าใหม่');
+                    console.error('nekoAPI is undefined.');
                     return;
                 }
-                console.log('✅ SIMPLE_API loaded successfully');
+                console.log('✅ nekoAPI loaded successfully');
                 
                 // ตรวจสอบ token และ localStorage ทันที
-                const token = SIMPLE_API.getToken();
-                const cachedUser = SIMPLE_API.getCurrentUser();
+                const token = nekoAPI.getToken();
+                const cachedUser = nekoAPI.getCurrentUser();
                 console.log('🔑 Token status:', token ? 'EXISTS' : 'NOT_FOUND');
                 console.log('� Token preview:', token ? token.substring(0, 20) + '...' : 'null');
                 console.log('�👤 Cached user:', cachedUser);
@@ -2396,8 +2091,8 @@
                 console.error('Stack trace:', error.stack);
                 showLoadingStatus(false);
                 
-                if (typeof SIMPLE_API !== 'undefined' && SIMPLE_API.showError) {
-                    SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
+                if (typeof nekoAPI !== 'undefined' && nekoAPI.showError) {
+                    showError('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
                 } else {
                     alert('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
                 }
@@ -2527,14 +2222,14 @@
                 return;
             }
             
-            const token = SIMPLE_API.getToken();
+            const token = nekoAPI.getToken();
             console.log('🔑 Token exists:', !!token);
             console.log('🔑 Token preview:', token ? token.substring(0, 20) + '...' : 'null');
             
             // Test user data endpoint
             try {
                 console.log('🧪 Testing GET /api/users/' + currentUser.id);
-                const userResponse = await SIMPLE_API.getUser(currentUser.id);
+                const userResponse = await nekoAPI.getUser(currentUser.id);
                 console.log('👤 User data test result:', userResponse);
             } catch (error) {
                 console.log('❌ User data test failed:', error.message);
@@ -2543,7 +2238,7 @@
             // Test preferences endpoint
             try {
                 console.log('🧪 Testing GET /api/users/' + currentUser.id + '/preferences');
-                const prefsResponse = await SIMPLE_API.getUserPreferences(currentUser.id);
+                const prefsResponse = await nekoAPI.getUserPreferences(currentUser.id);
                 console.log('⚙️ Preferences test result:', prefsResponse);
             } catch (error) {
                 console.log('❌ Preferences test failed:', error.message);
@@ -2565,8 +2260,8 @@
             
             // Check cookies
             console.log('🍪 Cookies:');
-            console.log('   nekouUser:', SIMPLE_API.getCookie('nekouUser'));
-            console.log('   nekouToken:', SIMPLE_API.getCookie('nekouToken') ? 'EXISTS' : 'NOT_FOUND');
+            console.log('   nekouUser:', nekoAPI.getCookie('nekouUser'));
+            console.log('   nekouToken:', nekoAPI.getCookie('nekouToken') ? 'EXISTS' : 'NOT_FOUND');
             
             console.log('🔍 === END DEBUG INFO ===');
         }
@@ -2763,7 +2458,7 @@
                 console.log('✅ User settings loaded successfully');
             } catch (error) {
                 console.error('❌ Load settings error:', error);
-                SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
+                showError('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
             }
         }
 
@@ -2772,7 +2467,7 @@
                 console.log('🔄 Loading user preferences...');
                 showLoadingStatus(true, 'กำลังโหลดการตั้งค่า...');
                 
-                const response = await SIMPLE_API.getUserPreferences(currentUser.id);
+                const response = await nekoAPI.getUserPreferences(currentUser.id);
                 
                 if (response && response.success) {
                     const preferences = response.preferences || {};
@@ -2805,7 +2500,7 @@
                 console.error('❌ Error loading preferences:', error);
                 showLoadingStatus(false);
                 setDefaultPreferences();
-                SIMPLE_API.showError('ไม่สามารถโหลดการตั้งค่าได้: ' + error.message);
+                showError('ไม่สามารถโหลดการตั้งค่าได้: ' + error.message);
             }
         }
 
@@ -3039,19 +2734,19 @@
 
                 // Get stats from API endpoints directly
                 const [diaryStats, todoStats, pomodoroStats, dashboardData] = await Promise.all([
-                    SIMPLE_API.getDiaryStats(currentUser.id).catch(e => {
+                    nekoAPI.getDiaryStats(currentUser.id).catch(e => {
                         console.log('📝 Diary stats error:', e.message);
                         return { data: { total: 0 } };
                     }),
-                    SIMPLE_API.getTodoStats(currentUser.id).catch(e => {
+                    nekoAPI.getTodoStats(currentUser.id).catch(e => {
                         console.log('✅ Todo stats error:', e.message);
                         return { data: { total: 0, completed: 0 } };
                     }),
-                    SIMPLE_API.getPomodoroStats(currentUser.id).catch(e => {
+                    nekoAPI.getPomodoroStats(currentUser.id).catch(e => {
                         console.log('🍅 Pomodoro stats error:', e.message);
                         return { data: { totalSessions: 0 } };
                     }),
-                    SIMPLE_API.getDashboardData(currentUser.id).catch(e => {
+                    nekoAPI.getDashboardData(currentUser.id).catch(e => {
                         console.log('📊 Dashboard data error:', e.message);
                         return null;
                     })
@@ -3076,7 +2771,7 @@
                         let messageCount = 0;
                         if (currentUser.partner) {
                             try {
-                                const messageData = await SIMPLE_API.getMessagesWithPartner(currentUser.id, currentUser.partner.id);
+                                const messageData = await nekoAPI.getMessagesWithPartner(currentUser.id, currentUser.partner.id);
                                 messageCount = messageData?.data?.length || messageData?.messages?.length || 0;
                             } catch (error) {
                                 console.log('💬 Message count error:', error.message);
@@ -3178,12 +2873,12 @@
                 
                 console.log('📋 Preferences data:', preferencesData);
                 
-                const response = await SIMPLE_API.updatePreferences(currentUser.id, preferencesData);
+                const response = await nekoAPI.updatePreferences(currentUser.id, preferencesData);
                 
                 if (response && response.success) {
                     // Update current user preferences
                     currentUser.preferences = preferencesData;
-                    SIMPLE_API.updateCurrentUser(currentUser);
+                    nekoAPI.updateCurrentUser(currentUser);
                     
                     // Update UI
                     updateQuickInfo();
@@ -3191,14 +2886,14 @@
                     // Exit edit mode
                     toggleEditMode('preferences', false);
                     
-                    SIMPLE_API.showSuccess('อัปเดตการตั้งค่าเรียบร้อย');
+                    showSuccess('อัปเดตการตั้งค่าเรียบร้อย');
                 } else {
                     throw new Error(response?.message || 'Failed to update preferences');
                 }
                 
             } catch (error) {
                 console.error('❌ Update preferences error:', error);
-                SIMPLE_API.showError('ไม่สามารถอัปเดตการตั้งค่าได้: ' + error.message);
+                showError('ไม่สามารถอัปเดตการตั้งค่าได้: ' + error.message);
             }
         }
 
@@ -3236,12 +2931,12 @@
                     gender
                 };
                 
-                const response = await SIMPLE_API.updateProfile(currentUser.id, updateData);
+                const response = await nekoAPI.updateProfile(currentUser.id, updateData);
                 
                 if (response && response.success) {
                     // Update current user data
                     currentUser = {...currentUser, ...updateData};
-                    SIMPLE_API.updateCurrentUser(currentUser);
+                    nekoAPI.updateCurrentUser(currentUser);
                     
                     // Update UI
                     updateNavigationBar();
@@ -3251,14 +2946,14 @@
                     // Exit edit mode
                     toggleEditMode('basic', false);
                     
-                    SIMPLE_API.showSuccess('อัปเดตโปรไฟล์เรียบร้อย');
+                    showSuccess('อัปเดตโปรไฟล์เรียบร้อย');
                 } else {
                     throw new Error(response?.message || 'Failed to update profile');
                 }
                 
             } catch (error) {
                 console.error('Update profile error:', error);
-                SIMPLE_API.showError('ไม่สามารถอัปเดตโปรไฟล์ได้: ' + error.message);
+                showError('ไม่สามารถอัปเดตโปรไฟล์ได้: ' + error.message);
             }
         }
         
@@ -3274,12 +2969,12 @@
             
             // Validate passwords
             if (newPassword !== confirmPassword) {
-                SIMPLE_API.showError('รหัสผ่านใหม่ไม่ตรงกัน');
+                showError('รหัสผ่านใหม่ไม่ตรงกัน');
                 return;
             }
             
             if (newPassword.length < 6) {
-                SIMPLE_API.showError('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+                showError('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
                 return;
             }
             
@@ -3289,21 +2984,21 @@
                     newPassword: newPassword
                 };
                 
-                const response = await SIMPLE_API.changePassword(currentUser.id, passwordData);
+                const response = await nekoAPI.changePassword(currentUser.id, passwordData);
                 
                 if (response && response.success) {
                     // Reset form and hide it
                     form.reset();
                     document.getElementById('changePasswordForm').style.display = 'none';
                     
-                    SIMPLE_API.showSuccess('เปลี่ยนรหัสผ่านเรียบร้อย');
+                    showSuccess('เปลี่ยนรหัสผ่านเรียบร้อย');
                 } else {
                     throw new Error(response?.message || 'Failed to change password');
                 }
                 
             } catch (error) {
                 console.error('Change password error:', error);
-                SIMPLE_API.showError('ไม่สามารถเปลี่ยนรหัสผ่านได้: ' + error.message);
+                showError('ไม่สามารถเปลี่ยนรหัสผ่านได้: ' + error.message);
             }
         }
 
@@ -3318,12 +3013,12 @@
             
             // Validate email
             if (!newEmail || !isValidEmail(newEmail)) {
-                SIMPLE_API.showError('กรุณาใส่อีเมลที่ถูกต้อง');
+                showError('กรุณาใส่อีเมลที่ถูกต้อง');
                 return;
             }
             
             if (!currentPassword) {
-                SIMPLE_API.showError('กรุณาใส่รหัสผ่านปัจจุบัน');
+                showError('กรุณาใส่รหัสผ่านปัจจุบัน');
                 return;
             }
             
@@ -3333,12 +3028,12 @@
                     currentPassword: currentPassword
                 };
                 
-                const response = await SIMPLE_API.changeEmail(currentUser.id, emailData);
+                const response = await nekoAPI.changeEmail(currentUser.id, emailData);
                 
                 if (response && response.success) {
                     // Update current user email
                     currentUser.email = newEmail;
-                    SIMPLE_API.updateCurrentUser(currentUser);
+                    nekoAPI.updateCurrentUser(currentUser);
                     
                     // Update UI
                     updateUserOverview();
@@ -3347,14 +3042,14 @@
                     form.reset();
                     document.getElementById('changeEmailForm').style.display = 'none';
                     
-                    SIMPLE_API.showSuccess('เปลี่ยนอีเมลเรียบร้อย');
+                    showSuccess('เปลี่ยนอีเมลเรียบร้อย');
                 } else {
                     throw new Error(response?.message || 'Failed to change email');
                 }
                 
             } catch (error) {
                 console.error('Change email error:', error);
-                SIMPLE_API.showError('ไม่สามารถเปลี่ยนอีเมลได้: ' + error.message);
+                showError('ไม่สามารถเปลี่ยนอีเมลได้: ' + error.message);
             }
         }
 
@@ -3463,37 +3158,37 @@
             const partnerCode = partnerCodeInput?.value?.trim();
             
             if (!partnerCode) {
-                SIMPLE_API.showError('กรุณาใส่รหัสคู่รัก');
+                showError('กรุณาใส่รหัสคู่รัก');
                 return;
             }
             
             if (partnerCode.length !== 8) {
-                SIMPLE_API.showError('รหัสคู่รักต้องมี 8 ตัวอักษร');
+                showError('รหัสคู่รักต้องมี 8 ตัวอักษร');
                 return;
             }
             
             try {
                 console.log('🔄 Connecting to partner with code:', partnerCode);
                 
-                const response = await SIMPLE_API.connectPartner(currentUser.id, partnerCode);
+                const response = await nekoAPI.connectPartner(currentUser.id, partnerCode);
                 
                 if (response && response.success) {
                     // Update current user data
                     currentUser.partner = response.partner;
-                    SIMPLE_API.updateCurrentUser(currentUser);
+                    nekoAPI.updateCurrentUser(currentUser);
                     
                     // Update UI
                     updatePartnerInfo();
                     updatePartnerStatus();
                     
-                    SIMPLE_API.showSuccess('เชื่อมต่อกับคู่รักเรียบร้อย');
+                    showSuccess('เชื่อมต่อกับคู่รักเรียบร้อย');
                 } else {
                     throw new Error(response?.message || 'Failed to connect partner');
                 }
                 
             } catch (error) {
                 console.error('Connect partner error:', error);
-                SIMPLE_API.showError('ไม่สามารถเชื่อมต่อกับคู่รักได้: ' + error.message);
+                showError('ไม่สามารถเชื่อมต่อกับคู่รักได้: ' + error.message);
             }
         }
 
@@ -3505,25 +3200,25 @@
             try {
                 console.log('🔄 Disconnecting from partner...');
                 
-                const response = await SIMPLE_API.disconnectPartner(currentUser.id);
+                const response = await nekoAPI.disconnectPartner(currentUser.id);
                 
                 if (response && response.success) {
                     // Update current user data
                     currentUser.partner = null;
-                    SIMPLE_API.updateCurrentUser(currentUser);
+                    nekoAPI.updateCurrentUser(currentUser);
                     
                     // Update UI
                     setupPartnerConnection();
                     updatePartnerStatus();
                     
-                    SIMPLE_API.showSuccess('ยกเลิกการเชื่อมต่อกับคู่รักเรียบร้อย');
+                    showSuccess('ยกเลิกการเชื่อมต่อกับคู่รักเรียบร้อย');
                 } else {
                     throw new Error(response?.message || 'Failed to disconnect partner');
                 }
                 
             } catch (error) {
                 console.error('Disconnect partner error:', error);
-                SIMPLE_API.showError('ไม่สามารถยกเลิกการเชื่อมต่อได้: ' + error.message);
+                showError('ไม่สามารถยกเลิกการเชื่อมต่อได้: ' + error.message);
             }
         }
         
@@ -3531,21 +3226,21 @@
             const confirmation = prompt('กรุณาพิมพ์ "ลบบัญชี" เพื่อยืนยันการลบบัญชี');
             
             if (confirmation !== 'ลบบัญชี') {
-                SIMPLE_API.showError('การยืนยันไม่ถูกต้อง');
+                showError('การยืนยันไม่ถูกต้อง');
                 return;
             }
             
             if (!confirm('คุณแน่ใจใช่หรือไม่ที่ต้องการลบบัญชี? การกระทำนี้ไม่สามารถยกเลิกได้')) return;
             
             try {
-                await SIMPLE_API.deleteAccount(currentUser.id);
+                await nekoAPI.deleteAccount(currentUser.id);
                 
                 // Logout and redirect
-                SIMPLE_API.logout();
+                nekoAPI.logout();
                 
             } catch (error) {
                 console.error('Delete account error:', error);
-                SIMPLE_API.showError('ไม่สามารถลบบัญชีได้');
+                showError('ไม่สามารถลบบัญชีได้');
             }
         }
         
@@ -3555,7 +3250,7 @@
         }
         
         function handleLogout() {
-            SIMPLE_API.logout();
+            nekoAPI.logout();
         }
         
         // Add missing navigation bar update

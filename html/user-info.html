@@ -295,19 +295,23 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../js/simple-api.js"></script>
-    <script src="../js/analytics.js"></script>
+    
+    <!-- Neko API Helper -->
+    <script src="../assets/js/neko-api.js"></script>
+    <script src="../assets/js/auth-guard.js"></script>
     
     <script>
+        // Initialize auth guard to protect this page
+        authGuard.protectPage();
+        
         let currentUser = null;
         
         // Initialize user info page
         document.addEventListener('DOMContentLoaded', async function() {
             try {
-                currentUser = SIMPLE_API.getCurrentUser();
+                currentUser = nekoAPI.getCurrentUser();
                 if (!currentUser) {
-                    window.location.href = 'index.html';
-                    return;
+                    return; // AuthGuard will handle redirect
                 }
                 
                 // Setup UI
@@ -318,7 +322,7 @@
                 
             } catch (error) {
                 console.error('User info initialization error:', error);
-                SIMPLE_API.showError('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้');
+                nekoAPI.showError('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้');
             }
         });
         
@@ -416,7 +420,7 @@
         
         async function loadUserStats() {
             try {
-                const response = await SIMPLE_API.getUserStats(currentUser.id);
+                const response = await nekoAPI.getUserStats(currentUser.id);
                 const stats = response.data || {};
                 
                 // Update stats display
@@ -448,20 +452,20 @@
                     email: formData.get('email')
                 };
                 
-                const response = await SIMPLE_API.updateProfile(currentUser.id, updateData);
+                const response = await nekoAPI.updateProfile(currentUser.id, updateData);
                 
                 // Update current user data
                 currentUser = response.data;
-                SIMPLE_API.updateCurrentUser(currentUser);
+                nekoAPI.updateCurrentUser(currentUser);
                 
                 // Update display
                 updateUserInfoDisplay();
                 
-                SIMPLE_API.showSuccess('อัปเดตโปรไฟล์เรียบร้อย');
+                nekoAPI.showSuccess('อัปเดตโปรไฟล์เรียบร้อย');
                 
             } catch (error) {
                 console.error('Profile update error:', error);
-                SIMPLE_API.showError('ไม่สามารถอัปเดตโปรไฟล์ได้');
+                nekoAPI.showError('ไม่สามารถอัปเดตโปรไฟล์ได้');
             }
         }
         
@@ -473,16 +477,16 @@
             const partnerCode = formData.get('partnerCode');
             
             if (!partnerCode) {
-                SIMPLE_API.showError('กรุณาใส่รหัสแฟน');
+                nekoAPI.showError('กรุณาใส่รหัสแฟน');
                 return;
             }
             
             try {
-                const response = await SIMPLE_API.connectPartner(currentUser.id, partnerCode);
+                const response = await nekoAPI.connectPartner(currentUser.id, partnerCode);
                 
                 // Update current user data
                 currentUser = response.data;
-                SIMPLE_API.updateCurrentUser(currentUser);
+                nekoAPI.updateCurrentUser(currentUser);
                 
                 // Update display
                 updatePartnerInfo();
@@ -490,11 +494,11 @@
                 // Reset form
                 form.reset();
                 
-                SIMPLE_API.showSuccess('เชื่อมต่อกับแฟนเรียบร้อย');
+                nekoAPI.showSuccess('เชื่อมต่อกับแฟนเรียบร้อย');
                 
             } catch (error) {
                 console.error('Partner invite error:', error);
-                SIMPLE_API.showError('ไม่สามารถเชื่อมต่อกับแฟนได้');
+                nekoAPI.showError('ไม่สามารถเชื่อมต่อกับแฟนได้');
             }
         }
         
@@ -502,20 +506,20 @@
             if (!confirm('คุณต้องการยกเลิกการเชื่อมต่อกับแฟนใช่หรือไม่?')) return;
             
             try {
-                const response = await SIMPLE_API.disconnectPartner(currentUser.id);
+                const response = await nekoAPI.disconnectPartner(currentUser.id);
                 
                 // Update current user data
                 currentUser = response.data;
-                SIMPLE_API.updateCurrentUser(currentUser);
+                nekoAPI.updateCurrentUser(currentUser);
                 
                 // Update display
                 updatePartnerInfo();
                 
-                SIMPLE_API.showSuccess('ยกเลิกการเชื่อมต่อกับแฟนเรียบร้อย');
+                nekoAPI.showSuccess('ยกเลิกการเชื่อมต่อกับแฟนเรียบร้อย');
                 
             } catch (error) {
                 console.error('Disconnect partner error:', error);
-                SIMPLE_API.showError('ไม่สามารถยกเลิกการเชื่อมต่อได้');
+                nekoAPI.showError('ไม่สามารถยกเลิกการเชื่อมต่อได้');
             }
         }
         
@@ -524,7 +528,7 @@
             
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(partnerCode).then(() => {
-                    SIMPLE_API.showSuccess('คัดลอกรหัสแฟนเรียบร้อย');
+                    nekoAPI.showSuccess('คัดลอกรหัสแฟนเรียบร้อย');
                 }).catch(() => {
                     fallbackCopyTextToClipboard(partnerCode);
                 });
@@ -549,12 +553,12 @@
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
-                    SIMPLE_API.showSuccess('คัดลอกรหัสแฟนเรียบร้อย');
+                    nekoAPI.showSuccess('คัดลอกรหัสแฟนเรียบร้อย');
                 } else {
-                    SIMPLE_API.showError('ไม่สามารถคัดลอกได้');
+                    nekoAPI.showError('ไม่สามารถคัดลอกได้');
                 }
             } catch (err) {
-                SIMPLE_API.showError('ไม่สามารถคัดลอกได้');
+                nekoAPI.showError('ไม่สามารถคัดลอกได้');
             }
             
             document.body.removeChild(textArea);

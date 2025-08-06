@@ -592,11 +592,16 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../js/simple-api.js"></script>
-    <script src="../js/analytics.js"></script>
+    
+    <!-- Neko API Helper -->
+    <script src="../assets/js/neko-api.js"></script>
+    <script src="../assets/js/auth-guard.js"></script>
     
     <script>
         // Todo functionality with enhanced features
+        // Initialize auth guard to protect this page
+        authGuard.protectPage();
+        
         let currentUser = null;
         let partnerInfo = null;
         let todos = [];
@@ -731,7 +736,7 @@
                 if (window.api && window.api.todo) {
                     response = await api.todo.create(currentUser.id, todoData);
                 } else {
-                    response = await SIMPLE_API.createTodo({
+                    response = await nekoAPI.createTodo({
                         ...todoData,
                         userId: currentUser.id
                     });
@@ -806,7 +811,7 @@
                     }
                 } else {
                     // Fallback to simple API
-                    response = await SIMPLE_API.getTodos(currentUser.id);
+                    response = await nekoAPI.getTodos(currentUser.id);
                     todos = response.data || [];
                     renderTodos();
                     updateStats();
@@ -1005,7 +1010,7 @@
                         throw error;
                     }
                 } else {
-                    await SIMPLE_API.updateTodo(todoId, updateData);
+                    await nekoAPI.updateTodo(todoId, updateData);
                 }
                 
                 // Show success message
@@ -1067,7 +1072,7 @@
                         throw error;
                     }
                 } else {
-                    await SIMPLE_API.deleteTodo(todoId);
+                    await nekoAPI.deleteTodo(todoId);
                 }
                 
                 if (window.utils && typeof utils.showToast === 'function') {
@@ -1112,7 +1117,7 @@
                     userId: currentUser.id
                 };
                 
-                await SIMPLE_API.createTodo(todoData);
+                await nekoAPI.createTodo(todoData);
                 
                 // Reset form and close modal
                 form.reset();
@@ -1180,7 +1185,7 @@
                     due_date: formData.get('due_date')
                 };
                 
-                await SIMPLE_API.updateTodo(todoId, updateData);
+                await nekoAPI.updateTodo(todoId, updateData);
                 
                 // Close modal
                 const modal = bootstrap.Modal.getInstance(document.getElementById('editTodoModal'));
@@ -1210,7 +1215,7 @@
                 const todo = todos.find(t => t.id === todoId);
                 if (!todo) return;
                 
-                await SIMPLE_API.updateTodo(todoId, { completed: !todo.completed });
+                await nekoAPI.updateTodo(todoId, { completed: !todo.completed });
                 await loadAllTodos();
                 
             } catch (error) {

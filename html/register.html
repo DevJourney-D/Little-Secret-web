@@ -434,189 +434,71 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Neko API Helper -->
+    <script src="../assets/js/neko-api.js"></script>
+    <script src="../assets/js/auth-guard.js"></script>
+    
     <script>
-        // Simple API Helper - Inline Version
-        const SIMPLE_API = {
-            baseURL: 'https://little-secret-api.vercel.app',
+        // Initialize auth guard for register page (redirect if authenticated)
+        authGuard.redirectIfAuthenticated();
 
-            // Get authentication token from cookie
-            getToken() {
-                const name = 'nekouToken=';
-                const decodedCookie = decodeURIComponent(document.cookie);
-                const ca = decodedCookie.split(';');
-                for (let i = 0; i < ca.length; i++) {
-                    let c = ca[i];
-                    while (c.charAt(0) === ' ') c = c.substring(1);
-                    if (c.indexOf(name) === 0) return c.substring(name.length, c.length);
-                }
-                return null;
-            },
+        // Email validation helper
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
 
-            // Get current user from cookie
-            getCurrentUser() {
-                const userStr = this.getCookie('nekouUser');
-                return userStr ? JSON.parse(userStr) : null;
-            },
-
-            // Helper function to get cookie
-            getCookie(name) {
-                const nameEQ = name + "=";
-                const ca = document.cookie.split(';');
-                for (let i = 0; i < ca.length; i++) {
-                    let c = ca[i];
-                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                    if (c.indexOf(nameEQ) === 0) {
-                        const value = c.substring(nameEQ.length, c.length);
-                        console.log(`🍪 Got cookie: ${name} = ${value}`);
-                        return decodeURIComponent(value);
-                    }
-                }
-                console.log(`🍪 Cookie not found: ${name}`);
-                return null;
-            },
-
-            // Set cookie
-            setCookie(name, value, hours = 24) {
-                const expires = new Date();
-                expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
-                document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/`;
-                console.log(`🍪 Set cookie: ${name} = ${value}`);
-            },
-
-            // Update current user data in cookie
-            updateCurrentUser(userData) {
-                this.setCookie('nekouUser', JSON.stringify(userData));
-            },
-
-            // Base request function
-            async request(endpoint, options = {}) {
-                const token = this.getToken();
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` })
-                };
-
-                const config = {
-                    headers,
-                    mode: 'cors',
-                    credentials: 'omit',
-                    ...options
-                };
-
-                try {
-                    console.log(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
-                    const response = await fetch(`${this.baseURL}${endpoint}`, config);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    console.log(`✅ API Response:`, data);
-                    return data;
-                } catch (error) {
-                    console.error(`❌ API Error:`, error);
-                    throw error;
-                }
-            },
-
-            // Authentication methods
-            async register(userData) {
-                const response = await this.request('/api/users', {
-                    method: 'POST',
-                    body: JSON.stringify(userData)
-                });
-
-                if (response.success) {
-                    // Store token and user data in cookies
-                    this.setCookie('nekouToken', response.token);
-                    this.updateCurrentUser(response.user);
-                    console.log('✅ Registration successful, cookies set');
-                }
-
-                return response;
-            },
-
-            async checkUsername(username) {
-                return this.request(`/api/users/username/${encodeURIComponent(username)}`);
-            },
-
-            async checkEmail(email) {
-                return this.request(`/api/users/email/${encodeURIComponent(email)}`);
-            },
-
-            // UI helpers
-            showError(message) {
-                // Create toast-like notification
-                const toast = document.createElement('div');
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #dc3545;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 10px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    animation: slideIn 0.3s ease;
-                `;
-                toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
-                
-                // Add animation
-                const style = document.createElement('style');
-                style.textContent = `
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                `;
-                document.head.appendChild(style);
-                
-                document.body.appendChild(toast);
-                setTimeout(() => {
-                    toast.remove();
-                    style.remove();
-                }, 5000);
-            },
-
-            showSuccess(message) {
-                const toast = document.createElement('div');
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #28a745;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 10px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                `;
-                toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
-                
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-            }
-        };
-
-        // Check if already logged in on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Register page loaded');
+        // UI helpers
+        function showError(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #dc3545;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                z-index: 9999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="bi bi-exclamation-circle me-2"></i>${message}`;
             
-            // Check if user is already logged in
-            const currentUser = SIMPLE_API.getCurrentUser();
-            const token = SIMPLE_API.getToken();
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
             
-            if (currentUser && token) {
-                console.log('✅ User already logged in, redirecting to dashboard');
-                window.location.href = 'dashboard.html';
-                return;
-            }
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+                style.remove();
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #28a745;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                z-index: 9999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            toast.innerHTML = `<i class="bi bi-check-circle me-2"></i>${message}`;
             
-            console.log('📋 User not logged in, showing register form');
-        });
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
 
         // Real-time validation functions
         document.getElementById('username').addEventListener('blur', async function() {
@@ -639,8 +521,8 @@
                 feedbackDiv.className = 'text-info small mt-1';
                 feedbackDiv.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> กำลังตรวจสอบ...';
                 
-                const result = await SIMPLE_API.checkUsername(username);
-                console.log('🔍 Username check result for registration (FULL):', JSON.stringify(result, null, 2));
+                const result = await nekoAPI.checkUsername(username);
+                console.log('🔍 Username check result for registration:', result);
                 
                 // For registration: we want to know if username is AVAILABLE (not taken)
                 const usernameAvailable = result && (
@@ -690,8 +572,8 @@
                 feedbackDiv.className = 'text-info small mt-1';
                 feedbackDiv.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> กำลังตรวจสอบ...';
                 
-                const result = await SIMPLE_API.checkEmail(email);
-                console.log('🔍 Email check result for registration (FULL):', JSON.stringify(result, null, 2));
+                const result = await nekoAPI.checkEmail(email);
+                console.log('🔍 Email check result for registration:', result);
                 
                 // For registration: we want to know if email is AVAILABLE (not taken)
                 const emailAvailable = result && (
@@ -720,12 +602,6 @@
                 feedbackDiv.innerHTML = '<i class="bi bi-wifi-off me-1"></i>ไม่สามารถตรวจสอบอีเมลได้';
             }
         });
-        
-        // Email validation helper
-        function isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        }
         
         // Password validation
         document.getElementById('confirmPassword').addEventListener('input', function() {
@@ -798,13 +674,13 @@
             
             try {
                 console.log('🚀 Sending registration request');
-                const result = await SIMPLE_API.register(formData);
+                const result = await nekoAPI.register(formData);
                 
                 if (result.success) {
                     console.log('✅ Registration successful:', result);
                     // Success - redirect to dashboard (user is now logged in)
                     alertDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>🎉 สมัครสมาชิกสำเร็จ! ยินดีต้อนรับสู่ Neko U</div>';
-                    SIMPLE_API.showSuccess('🎉 สมัครสมาชิกสำเร็จ! กำลังเปลี่ยนเส้นทาง...');
+                    showSuccess('🎉 สมัครสมาชิกสำเร็จ! กำลังเปลี่ยนเส้นทาง...');
                     
                     setTimeout(() => {
                         window.location.href = 'dashboard.html';
@@ -838,7 +714,7 @@
                     <br><small class="mt-1 d-block">💡 หากยังมีปัญหา กรุณาลองใช้ข้อมูลอื่น หรือติดต่อผู้ดูแลระบบ</small>
                 </div>`;
                 
-                SIMPLE_API.showError(errorMessage);
+                showError(errorMessage);
                 
                 // Reset button
                 registerBtn.disabled = false;
